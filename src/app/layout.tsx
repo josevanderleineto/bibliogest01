@@ -10,6 +10,11 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// Toda página depende do banco (acervo, configurações, sessão).
+// Isso também evita que o build tente conectar ao banco durante
+// a coleta de dados das páginas.
+export const dynamic = "force-dynamic";
+
 // Nome da biblioteca vem das configurações (personalizável)
 export async function generateMetadata(): Promise<Metadata> {
   let title = "BiblioGest";

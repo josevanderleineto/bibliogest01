@@ -1,12 +1,7 @@
 {
-  "buildCommand": "next build",
-  "devCommand": "next dev",
-  "installCommand": "npm install",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "DATABASE_URL": "@databases_url",
-    "JWT_SECRET": "@jwt_secret",
-    "NEXT_PUBLIC_URL": "@next_public_url"
-  }
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "regions": ["gru1"]
 }

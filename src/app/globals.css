@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  O fundo e a cor do texto sao definidos pelas classes utilitarias
+  (bg-gray-50, text-gray-900) em cada pagina. Aqui ficam apenas
+  ajustes que nao existem no Tailwind.
+*/
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100vh;
+}
+
+/* Foco visivel para navegacao por teclado */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Impressao: usado pela tela de etiquetas */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  aside,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    margin-left: 0 !important;
+  }
+
+  @page {
+    margin: 10mm;
+  }
+}
+
+/* Estilos customizados para etiquetas */
+.label-spine {
+  width: 50mm;
+  height: 20mm;
+  font-size: 10px;
+  border: 1px solid #000;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.label-front {
+  width: 70mm;
+  height: 30mm;
+  font-size: 12px;
+  border: 1px solid #000;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Scrollbar custom */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

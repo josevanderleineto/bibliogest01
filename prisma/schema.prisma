@@ -1,0 +1,325 @@
+// ============================================
+// BiblioGest - Schema do Banco de Dados
+// Padrões MARC 21 e RDA
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUÁRIOS DO SISTEMA (Login)
+// ============================================
+
+enum UserRole {
+  ADMIN
+  LIBRARIAN
+  ASSISTANT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          UserRole  @default(LIBRARIAN)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Login tracking
+  failedAttempts Int     @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+
+  // Relations
+  createdCatalogs Catalog[] @relation("CatalogCreator")
+  sessions       Session[]
+  loans          Loan[]
+
+  @@map("users")
+  @@index([email])
+}
+
+// ============================================
+// CATÁLOGO (Registros MARC 21)
+// ============================================
+
+enum MaterialType {
+  BOOK
+  PERIODICAL
+  OTHER
+}
+
+model Catalog {
+  id              String    @id @default(cuid())
+  materialType    MaterialType
+
+  // ---- CAMPOS MARC 21 PRINCIPAIS ----
+
+  // MARC 001 - Número de Controle
+  controlNumber   String?
+
+  // MARC 008 - Elementos de Tamanho Fixo (país, idioma, data)
+  fixedFields     String?
+
+  // MARC 245 - Título Principal
+  title           String
+  subtitle        String?
+  titleStatement  String?   // $c - Indicação de responsabilidade
+
+  // MARC 100 - Autor Principal ($a Sobrenome, Nome, $e termo de relação)
+  authors         String[]  @default([])
+
+  // MARC 700 - Autor Secundário / Colaborador
+  contributors    String[]  @default([])
+
+  // MARC 250 - Edição ($a Indicação de edição)
+  edition         String?
+
+  // MARC 260 / 264 - Publicação / Distribuição ($a Lugar, $b Editora, $c Data)
+  publisher       String?
+  publicationPlace String?
+  publicationYear String?
+
+  // MARC 490 - Indicação de Série ($a Título, $v Volume)
+  seriesTitle     String?
+  seriesVolume    String?
+
+  // MARC 020 - ISBN ($a)
+  isbn            String?
+
+  // MARC 022 - ISSN ($a - Periódicos)
+  issn            String?
+
+  // MARC 650 - Assunto / Palavras-chave ($a Cabeçalho de assunto)
+  subjects        String[]  @default([])
+
+  // MARC 082 - Classificação CDD / CDU
+  classification  String?
+  cdd             String?
+  cdu             String?
+
+  // ---- CAMPOS ADICIONAIS MARC 21 ----
+
+  // MARC 300 - Descrição Física ($a Extensão, $b Detalhes, $c Dimensão)
+  physicalDesc    String?
+
+  // MARC 500 - Nota Geral ($a)
+  generalNote     String?
+
+  // MARC 510 - Referência Bibliográfica ($a)
+  bibReference    String?
+
+  // MARC 830 - Título Uniforme de Série ($a)
+  uniformSeriesTitle String?
+
+  // ---- CAMPOS PERSONALIZADOS MARC EXTRAS ----
+  customFields    Json      @default("[]") // Array de { fieldNumber, fieldName, value }
+
+  // ---- DADOS OPERACIONAIS ----
+
+  // Número de chamada
+  callNumber      String?
+
+  // Código Cutter
+  cutterCode      String?
+
+  // Número de acervo
+  accessionNumber String?
+
+  // Quantidade de exemplares
+  totalCopies     Int       @default(1)
+
+  // Volume/Número (periódicos - MARC 362)
+  volume          String?
+  number          String?
+  period          String?
+
+  // Metadata
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  creator         User?     @relation("CatalogCreator", fields: [createdBy], references: [id])
+  exemplars       Exemplar[]
+  loans           Loan[]
+
+  @@map("catalog")
+  @@index([title])
+  @@index([isbn])
+  @@index([materialType])
+}
+
+// ============================================
+// EXEMPLARES (Controle de Estoque)
+// ============================================
+
+enum ExemplarStatus {
+  AVAILABLE
+  LOANED
+  MAINTENANCE
+  LOST
+  PROCESSING
+  RESTORATION
+}
+
+model Exemplar {
+  id              String       @id @default(cuid())
+  catalogId       String
+  barcode         String       @unique
+  accessionNumber String?
+  callNumber      String?
+  cutterCode      String?
+  status          ExemplarStatus @default(AVAILABLE)
+  internalNote    String?
+
+  // Metadata
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  catalog         Catalog      @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  loans           Loan[]
+  labels          Label[]
+
+  @@map("exemplars")
+  @@index([catalogId])
+  @@index([barcode])
+  @@index([status])
+}
+
+// ============================================
+// EMPRÉSTIMOS
+// ============================================
+
+enum LoanStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+  RENEWED
+}
+
+model Loan {
+  id              String   @id @default(cuid())
+  catalogId       String
+  exemplarId      String
+  userId          String
+  loanDate        DateTime @default(now())
+  dueDate         DateTime
+  returnDate      DateTime?
+  actualReturnDate DateTime?
+  status          LoanStatus @default(ACTIVE)
+  renewalCount    Int      @default(0)
+  notes           String?
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  catalog         Catalog  @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  exemplar        Exemplar @relation(fields: [exemplarId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@map("loans")
+  @@index([userId])
+  @@index([exemplarId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// ============================================
+// ETIQUETAS (Print templates)
+// ============================================
+
+enum LabelType {
+  SPINE     // Lombada (20×50mm)
+  FRONT     // Identificação/Frente (30×70mm)
+}
+
+model Label {
+  id            String     @id @default(cuid())
+  type          LabelType
+  exemplarId    String
+  generatedAt   DateTime   @default(now())
+
+  // Relations
+  exemplar      Exemplar   @relation(fields: [exemplarId], references: [id], onDelete: Cascade)
+
+  @@map("labels")
+}
+
+// ============================================
+// SESSÕES (Controle de sessão)
+// ============================================
+
+model Session {
+  id            String   @id @default(cuid())
+  userId        String
+  token         String   @unique
+  expiresAt     DateTime
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+  @@index([token])
+  @@index([userId])
+}
+
+// ============================================
+// CONTADORES (Numeração automática de catálogo/acervo)
+// ============================================
+
+model Counter {
+  key         String   @id
+  value       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@map("counters")
+}
+
+// ============================================
+// CONFIGURAÇÕES DO SISTEMA
+// Linha única (id = "singleton") com a identificação
+// da instituição/biblioteca e os parâmetros de operação.
+// ============================================
+
+model Settings {
+  id                 String   @id @default("singleton")
+
+  // ---- Identificação ----
+  institutionName    String   @default("Museu de Astronomia e Ciências Afins")
+  institutionAcronym String   @default("MAB")
+  libraryName        String   @default("Biblioteca do MAB")
+  libraryCode        String?  // ex.: "MAB-BIB" — aparece nas etiquetas
+  address            String?
+  phone              String?
+  email              String?
+  website            String?
+
+  // ---- Parâmetros de circulação ----
+  loanDays           Int      @default(14)
+  maxLoansPerUser    Int      @default(3)
+  maxRenewals        Int      @default(3)
+
+  // ---- Apresentação ----
+  showCredit         Boolean  @default(true)
+
+  // ---- Auditoria ----
+  updatedBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("settings")
+}

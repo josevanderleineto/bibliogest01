@@ -1,0 +1,12 @@
+{
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "DATABASE_URL": "@databases_url",
+    "JWT_SECRET": "@jwt_secret",
+    "NEXT_PUBLIC_URL": "@next_public_url"
+  }
+}

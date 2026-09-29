@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSettings } from "@/components/SettingsProvider";
+import BiblioGestLogo from "@/components/BiblioGestLogo";
 
 interface CatalogItem {
   id: string;
@@ -91,15 +92,27 @@ export default function PublicCatalogPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-primary-700 text-white py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          <h1 className="text-2xl sm:text-3xl font-bold">
-            📚 Acervo — {settings.libraryName}
-          </h1>
-          <p className="text-primary-100 mt-1">{settings.institutionName}</p>
-          <p className="text-primary-200/80 text-sm mt-1">
-            {total} título{total === 1 ? "" : "s"} disponível
-            {total === 1 ? "" : "is"} para consulta
-          </p>
+        <div className="max-w-4xl mx-auto px-4 flex items-center gap-4">
+          {/* Logo do BiblioGest à esquerda, logo da biblioteca à direita */}
+          <BiblioGestLogo size={52} className="shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold">
+              Acervo — {settings.libraryName}
+            </h1>
+            <p className="text-primary-100 mt-1">{settings.institutionName}</p>
+            <p className="text-primary-200/80 text-sm mt-1">
+              {total} título{total === 1 ? "" : "s"} disponível
+              {total === 1 ? "" : "is"} para consulta
+            </p>
+          </div>
+          {settings.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={settings.logoUrl}
+              alt={settings.libraryName}
+              className="h-14 w-14 shrink-0 rounded-xl bg-white/95 p-1.5 object-contain"
+            />
+          )}
         </div>
       </header>
 

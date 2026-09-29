@@ -10,6 +10,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSettings } from "@/components/SettingsProvider";
+import BiblioGestLogo from "@/components/BiblioGestLogo";
 
 const NAV = [
   { href: "/dashboard", icon: "📊", label: "Painel" },
@@ -81,25 +82,26 @@ export default function DashboardLayout({
 
   const nav = (
     <>
-      <div className="p-4 border-b border-gray-200 flex items-center gap-3">
-        {settings.logoUrl ? (
+      {/* Logo do BiblioGest à esquerda, logo da biblioteca à direita */}
+      <div className="p-3 border-b border-gray-200 flex items-center gap-2">
+        <BiblioGestLogo size={34} className="shrink-0" />
+        <Link href="/dashboard" className="min-w-0 flex-1">
+          <span className="text-[13px] font-bold text-gray-900 leading-tight block truncate">
+            BiblioGest
+          </span>
+          <span className="text-[11px] text-gray-500 block truncate">
+            {settings.libraryName}
+          </span>
+        </Link>
+        {settings.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={settings.logoUrl}
             alt={settings.libraryName}
-            className="h-10 w-10 shrink-0 rounded object-contain"
+            title={settings.libraryName}
+            className="h-9 w-9 shrink-0 rounded object-contain"
           />
-        ) : (
-          <span className="text-2xl shrink-0">📚</span>
         )}
-        <Link href="/dashboard" className="min-w-0 flex-1">
-          <span className="text-base font-bold text-primary-700 leading-tight block truncate">
-            {settings.libraryName}
-          </span>
-          <span className="text-xs text-gray-500 block truncate">
-            {settings.institutionName}
-          </span>
-        </Link>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">
@@ -160,26 +162,23 @@ export default function DashboardLayout({
           <span className="block w-5 h-0.5 bg-current mb-1" />
           <span className="block w-5 h-0.5 bg-current" />
         </button>
-        <div className="min-w-0">
-          {settings.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={settings.logoUrl}
-              alt=""
-              className="h-8 w-8 rounded object-contain"
-            />
-          ) : (
-            <span className="text-xl">📚</span>
-          )}
-        </div>
+        <BiblioGestLogo size={26} className="shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-primary-700 truncate leading-tight">
-            {settings.libraryName}
+          <p className="text-sm font-bold text-gray-900 truncate leading-tight">
+            BiblioGest
           </p>
           <p className="text-[11px] text-gray-500 truncate leading-tight">
             {NAV.find((n) => isActive(n.href))?.label ?? "Menu"}
           </p>
         </div>
+        {settings.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={settings.logoUrl}
+            alt={settings.libraryName}
+            className="h-7 w-7 shrink-0 rounded object-contain"
+          />
+        )}
       </header>
 
       {/* ---------- Gaveta (celular) ---------- */}

@@ -10,6 +10,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/components/SettingsProvider";
+import BiblioGestLogo from "@/components/BiblioGestLogo";
 
 interface LoginFormData {
   email: string;
@@ -68,8 +69,19 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-white/20">
-            <span className="text-white text-3xl">📚</span>
+          {/* Logo do BiblioGest à esquerda, logo da biblioteca à direita */}
+          <div className="flex items-center justify-center gap-3">
+            <div className="h-16 w-16 flex items-center justify-center rounded-2xl bg-white/95">
+              <BiblioGestLogo size={40} />
+            </div>
+            {settings.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={settings.logoUrl}
+                alt={settings.libraryName}
+                className="h-16 w-16 rounded-2xl bg-white/95 p-2 object-contain"
+              />
+            )}
           </div>
           <h2 className="mt-4 text-center text-3xl font-extrabold text-white">
             {settings.libraryName}
@@ -78,7 +90,7 @@ export default function LoginPage() {
             {settings.institutionName}
           </p>
           <p className="mt-2 text-center text-xs text-primary-200/70">
-            Sistema de Gestão de Bibliotecas
+            Sistema BiblioGest de Gestão de Bibliotecas
           </p>
         </div>
 

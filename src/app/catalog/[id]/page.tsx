@@ -123,7 +123,7 @@ export default function CatalogDetailPage() {
             <img
               src={settings.logoUrl}
               alt={settings.libraryName}
-              className="h-12 w-12 shrink-0 rounded object-contain bg-white/10 p-1"
+              className="h-12 w-12 shrink-0 rounded-lg bg-white/95 p-1 object-contain"
             />
           )}
           <div className="min-w-0">

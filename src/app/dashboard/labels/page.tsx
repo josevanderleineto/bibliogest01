@@ -358,11 +358,12 @@ export default function LabelsPage() {
                         </div>
 
                         <div className="mt-auto pt-0.5">
-                          <Barcode39 value={label.barcode} heightMm={5} showText={false} />
-                          <div className="text-center font-mono text-[7px] text-gray-900 font-semibold">
-                            {label.barcode}
-                          </div>
-                          <div className="flex justify-between font-mono text-[6px] text-gray-600">
+                          <Barcode39
+                            value={label.barcode}
+                            heightMm={7}
+                            showText
+                          />
+                          <div className="flex justify-between font-mono text-[6px] text-gray-700 mt-0.5">
                             <span>Ac.{label.accessionNumber || "—"}</span>
                             <span>Ex.{label.exemplarIndex}</span>
                           </div>
@@ -373,7 +374,7 @@ export default function LabelsPage() {
                     {/* ---------- Só código ---------- */}
                     {label.type === "BARCODE" && (
                       <div className="flex h-full flex-col justify-center">
-                        <Barcode39 value={label.barcode} heightMm={8} />
+                        <Barcode39 value={label.barcode} heightMm={10} />
                       </div>
                     )}
                   </div>

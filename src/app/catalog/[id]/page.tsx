@@ -44,6 +44,8 @@ interface Item {
   seriesTitle?: string;
   seriesVolume?: string;
   customFields: unknown;
+  coverUrl?: string;
+  tombo?: string;
   exemplars: Exemplar[];
 }
 
@@ -115,19 +117,39 @@ export default function CatalogDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-primary-700 text-white py-6">
-        <div className="max-w-3xl mx-auto px-4">
-          <Link href="/catalog" className="text-primary-100 text-sm hover:underline">
-            ← Acervo
-          </Link>
-          <h1 className="text-2xl font-bold mt-2">{item.title}</h1>
-          {item.subtitle && <p className="text-primary-100">{item.subtitle}</p>}
-          <p className="text-primary-200/80 text-sm mt-1">
-            {settings.libraryName} · {settings.institutionAcronym}
-          </p>
+        <div className="max-w-3xl mx-auto px-4 flex items-center gap-3">
+          {settings.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={settings.logoUrl}
+              alt={settings.libraryName}
+              className="h-12 w-12 shrink-0 rounded object-contain bg-white/10 p-1"
+            />
+          )}
+          <div className="min-w-0">
+            <Link href="/catalog" className="text-primary-100 text-sm hover:underline">
+              ← Acervo
+            </Link>
+            <h1 className="text-2xl font-bold mt-2">{item.title}</h1>
+            {item.subtitle && <p className="text-primary-100">{item.subtitle}</p>}
+            <p className="text-primary-200/80 text-sm mt-1">
+              {settings.libraryName} · {settings.institutionAcronym}
+            </p>
+          </div>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+        {item.coverUrl && (
+          <section className="bg-white rounded-lg shadow p-4 flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.coverUrl}
+              alt={`Capa de ${item.title}`}
+              className="max-h-96 w-auto object-contain"
+            />
+          </section>
+        )}
         <section className="bg-white rounded-lg shadow p-5">
           <h2 className="font-semibold text-gray-900 mb-3">Descrição</h2>
           <dl>
@@ -157,6 +179,7 @@ export default function CatalogDetailPage() {
             {item.subjects?.length > 0 && (
               <Row term="Assuntos">{item.subjects.join("; ")}</Row>
             )}
+            {item.tombo && <Row term="Tombo">{item.tombo}</Row>}
             {(item.classification || item.callNumber) && (
               <Row term="Número de chamada">
                 <span className="font-mono font-semibold">

@@ -23,6 +23,7 @@ export interface SettingsData {
   phone: string | null;
   email: string | null;
   website: string | null;
+  logoUrl: string | null;
   loanDays: number;
   maxLoansPerUser: number;
   maxRenewals: number;
@@ -39,6 +40,7 @@ export const FALLBACK: SettingsData = {
   phone: "",
   email: "",
   website: "",
+  logoUrl: null,
   loanDays: 14,
   maxLoansPerUser: 3,
   maxRenewals: 3,

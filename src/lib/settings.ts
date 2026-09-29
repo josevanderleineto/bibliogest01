@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   phone: "",
   email: "",
   website: "",
+  logoUrl: null as string | null,
   loanDays: 14,
   maxLoansPerUser: 3,
   maxRenewals: 3,
@@ -35,6 +36,7 @@ export type Settings = {
   phone: string | null;
   email: string | null;
   website: string | null;
+  logoUrl: string | null;
   loanDays: number;
   maxLoansPerUser: number;
   maxRenewals: number;

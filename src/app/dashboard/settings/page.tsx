@@ -57,7 +57,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-1">⚙️ Configurações</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">⚙️ Configurações</h1>
       <p className="text-sm text-gray-500 mb-6">
         Personalize a identificação da biblioteca e os parâmetros de circulação.
       </p>
@@ -120,6 +120,32 @@ export default function SettingsPage() {
               <p className="text-xs text-gray-500 mt-1">
                 Usado no cabeçalho da etiqueta de identificação.
               </p>
+            </div>
+            <div className="md:col-span-2">
+              <label className={label}>
+                Logotipo da biblioteca{" "}
+                <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <input
+                type="url"
+                value={form.logoUrl ?? ""}
+                onChange={(e) => set("logoUrl", e.target.value)}
+                className={field}
+                placeholder="https://.../logo-mab.png"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cole o link de uma imagem já hospedada. Aparece no menu lateral do
+                painel e no catálogo público. Deixe vazio para usar o ícone de
+                livros.
+              </p>
+              {form.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.logoUrl}
+                  alt="Logotipo"
+                  className="mt-2 h-16 w-auto rounded border border-gray-200 object-contain"
+                />
+              )}
             </div>
           </div>
         </section>

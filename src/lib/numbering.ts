@@ -47,9 +47,15 @@ export async function nextAccessionNumbers(amount: number): Promise<string[]> {
   );
 }
 
-/** Código de barras do exemplar derivado do número de acervo */
+/**
+ * Código de barras do exemplar.
+ *
+ * Apenas dígitos: assim o bip funciona em qualquer leitor
+ * (Code 39, Code 128, EAN-13, UPC) e pode ser lido por outros
+ * sistemas de biblioteca, como no Koha.
+ */
 export function barcodeFromAccession(accessionNumber: string): string {
-  return `BG${accessionNumber}`;
+  return String(accessionNumber ?? "").replace(/\D+/g, "");
 }
 
 /** Gera código Cutter a partir dos autores */

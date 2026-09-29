@@ -130,8 +130,18 @@ model Catalog {
   // Código Cutter
   cutterCode      String?
 
-  // Número de acervo
+  // Número de acervo (gerado pelo sistema)
   accessionNumber String?
+
+  // Número de tombo — opcional.
+  // Preenchido apenas quando o item JÁ POSSUI tombo de origem
+  // (ex.: acervo transferred de outra biblioteca, ou tombo
+  //  afixado fisicamente antes da informatização).
+  tombo           String?
+
+  // URL da imagem da capa (hospedada externamente).
+  // Ex.: https://... . Não é feito upload de arquivo.
+  coverUrl        String?
 
   // Quantidade de exemplares
   totalCopies     Int       @default(1)
@@ -307,6 +317,10 @@ model Settings {
   phone              String?
   email              String?
   website            String?
+
+  // URL do logotipo da biblioteca (hospedado externamente).
+  // Exibido no painel e no catálogo público.
+  logoUrl            String?
 
   // ---- Parâmetros de circulação ----
   loanDays           Int      @default(14)

@@ -104,6 +104,8 @@ export async function PUT(
         uniformSeriesTitle: body.uniformSeriesTitle,
         callNumber: body.callNumber,
         cutterCode: body.cutterCode || (authors ? generateCutter(authors) : undefined),
+        tombo: body.tombo?.trim() || null,
+        coverUrl: body.coverUrl?.trim() || null,
         volume: body.volume,
         number: body.number,
         period: body.period,

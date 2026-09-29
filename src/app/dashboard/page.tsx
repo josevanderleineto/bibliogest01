@@ -36,7 +36,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-1">Painel de Controle</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">Painel de Controle</h1>
       <p className="text-sm text-gray-500 mb-6">Visão geral do acervo e da circulação.</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -49,7 +49,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{c.label}</p>
-                <p className={`text-3xl font-bold ${c.color}`}>{c.value}</p>
+                <p className={`text-2xl sm:text-3xl font-bold ${c.color}`}>{c.value}</p>
               </div>
               <span className="text-3xl">{c.icon}</span>
             </div>

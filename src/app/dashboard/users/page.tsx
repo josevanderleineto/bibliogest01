@@ -105,7 +105,7 @@ export default function UsersPage() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">👤 Usuários</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">👤 Usuários</h1>
           <p className="text-sm text-gray-500 mt-1">
             O e-mail de cada usuário funciona como matrícula no balcão de empréstimo.
           </p>

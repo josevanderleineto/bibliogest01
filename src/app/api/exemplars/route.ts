@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const barcode = searchParams.get("barcode");
     const q = searchParams.get("q") || "";
+    const tombo = searchParams.get("tombo") || "";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
 
@@ -89,6 +90,7 @@ export async function GET(request: NextRequest) {
     const where: any = {};
     if (catalogId) where.catalogId = catalogId;
     if (status) where.status = status;
+    if (tombo) where.catalog = { tombo: { equals: tombo.trim(), mode: "insensitive" } };
     if (q) {
       const matchTerm = (term: string) => [
         { barcode: { contains: term, mode: "insensitive" } },
@@ -98,6 +100,7 @@ export async function GET(request: NextRequest) {
         { catalog: { title: { contains: term, mode: "insensitive" } } },
         { catalog: { authors: { has: term } } },
         { catalog: { classification: { contains: term, mode: "insensitive" } } },
+        { catalog: { tombo: { contains: term, mode: "insensitive" } } },
       ];
 
       // Todos os termos precisam existir (ex.: "004.67 M278")
@@ -115,7 +118,15 @@ export async function GET(request: NextRequest) {
         select: {
           ...EXEMPLAR_SELECT,
           catalog: {
-            select: { id: true, title: true, authors: true, callNumber: true },
+            select: {
+              id: true,
+              title: true,
+              authors: true,
+              callNumber: true,
+              cutterCode: true,
+              classification: true,
+              tombo: true,
+            },
           },
         },
         orderBy: [{ status: "asc" }, { accessionNumber: "asc" }],

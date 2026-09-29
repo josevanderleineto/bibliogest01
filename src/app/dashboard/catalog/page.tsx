@@ -36,6 +36,8 @@ const EMPTY = {
   classification: "",
   cdd: "",
   cdu: "",
+  tombo: "",
+  coverUrl: "",
   physicalDesc: "",
   generalNote: "",
   bibReference: "",
@@ -183,7 +185,7 @@ export default function CatalogPage() {
         <Link href="/dashboard" className="text-gray-500 hover:text-gray-700 text-sm">
           ← Painel
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900">📖 Catalogação</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">📖 Catalogação</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6">
         Antes de inserir, faça a consulta interna para não duplicar registros.
@@ -355,6 +357,33 @@ export default function CatalogPage() {
               />
             </div>
             <div>
+              <label className={label}>
+                Imagem da capa{" "}
+                <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <input
+                type="url"
+                value={form.coverUrl}
+                onChange={(e) => set("coverUrl", e.target.value)}
+                className={field}
+                placeholder="https://.../capa.jpg"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cole o link de uma imagem já hospedada. Não é feito upload de
+                arquivo.
+              </p>
+              {form.coverUrl && (
+                // Imagem externa: next/image exigiria domínios permitidos,
+                // então usa-se <img> com a URL validada no servidor.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.coverUrl}
+                  alt="Pré-visualização da capa"
+                  className="mt-2 h-28 w-auto rounded border border-gray-200 object-contain"
+                />
+              )}
+            </div>
+            <div>
               <label className={label}>Subtítulo</label>
               <input
                 value={form.subtitle}
@@ -442,6 +471,23 @@ export default function CatalogPage() {
                 onChange={(e) => set("cdu", e.target.value)}
                 className={field}
               />
+            </div>
+            <div>
+              <label className={label}>
+                Número de tombo{" "}
+                <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <input
+                value={form.tombo}
+                onChange={(e) => set("tombo", e.target.value)}
+                className={field}
+                placeholder="Somente se já existir tombo"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Preencha apenas se o item já tiver tombo afixado antes da
+                informatização. Deixe vazio nos demais casos — o número de
+                acervo é gerado pelo sistema.
+              </p>
             </div>
           </div>
           {form.callNumber && (
@@ -595,7 +641,7 @@ export default function CatalogPage() {
         {form.materialType === "PERIODICAL" && (
           <section className="border-l-4 border-red-500 pl-4">
             <h2 className="font-bold text-red-700 mb-3">Periódico — MARC 362</h2>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={label}>Volume</label>
                 <input
@@ -630,7 +676,7 @@ export default function CatalogPage() {
           <h3 className="font-bold text-gray-700 mb-3">
             ➕ Campos MARC extras (opcional)
           </h3>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <input
               placeholder="Tag (ex.: 246)"
               value={newField.tag}

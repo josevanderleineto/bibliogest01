@@ -22,6 +22,7 @@ interface Exemplar {
     cutterCode?: string;
     classification?: string;
     controlNumber?: string;
+    tombo?: string;
   };
 }
 
@@ -125,7 +126,7 @@ export default function ExemplarsPage() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">📚 Exemplares</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">📚 Exemplares</h1>
           <p className="text-sm text-gray-500 mt-1">
             Cada exemplar tem número de acervo e código de barras próprios.
           </p>
@@ -163,10 +164,10 @@ export default function ExemplarsPage() {
       )}
 
       <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              {["Acervo", "Cód. barras", "Chamada", "Título", "Status", "Alterar"].map(
+              {["Acervo", "Tombo", "Cód. barras", "Chamada", "Título", "Status", "Alterar"].map(
                 (h) => (
                   <th
                     key={h}
@@ -198,6 +199,9 @@ export default function ExemplarsPage() {
                 <tr key={ex.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-sm text-gray-700">
                     {ex.accessionNumber || "—"}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    {ex.catalog.tombo || "—"}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">
                     {ex.barcode}

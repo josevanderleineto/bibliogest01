@@ -16,7 +16,7 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">📊 Relatórios</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-8">📊 Relatórios</h1>
       <div className="flex gap-2 mb-6">
         {[
           { key: "summary", label: "📈 Resumo" },
@@ -41,7 +41,7 @@ export default function ReportsPage() {
               ].map((c, i) => (
                 <div key={i} className="bg-gray-50 p-4 rounded-lg text-center">
                   <p className="text-sm text-gray-600">{c.label}</p>
-                  <p className={`text-3xl font-bold ${c.color}`}>{c.value}</p>
+                  <p className={`text-2xl sm:text-3xl font-bold ${c.color}`}>{c.value}</p>
                 </div>
               ))}
             </div>

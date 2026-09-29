@@ -209,7 +209,7 @@ export default function NewLoanPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
         📋 Empréstimo e Devolução
       </h1>
       <p className="text-sm text-gray-500 mb-6">
@@ -222,7 +222,7 @@ export default function NewLoanPage() {
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => switchMode("loan")}
-          className={`px-5 py-2.5 rounded-lg font-medium ${
+          className={`flex-1 sm:flex-none px-5 py-2.5 rounded-lg font-medium ${
             mode === "loan"
               ? "bg-primary-600 text-white"
               : "bg-white text-gray-700 hover:bg-gray-100"
@@ -232,7 +232,7 @@ export default function NewLoanPage() {
         </button>
         <button
           onClick={() => switchMode("return")}
-          className={`px-5 py-2.5 rounded-lg font-medium ${
+          className={`flex-1 sm:flex-none px-5 py-2.5 rounded-lg font-medium ${
             mode === "return"
               ? "bg-green-600 text-white"
               : "bg-white text-gray-700 hover:bg-gray-100"
@@ -263,7 +263,7 @@ export default function NewLoanPage() {
             <p className="text-xs text-gray-500 mb-3">
               Digite o e-mail cadastrado ou passe o cartão de usuário.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 ref={emailRef}
                 type="text"
@@ -276,7 +276,7 @@ export default function NewLoanPage() {
               <button
                 type="submit"
                 disabled={busy || !email.trim()}
-                className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50 whitespace-nowrap"
               >
                 {busy ? "..." : "Continuar"}
               </button>
@@ -312,7 +312,7 @@ export default function NewLoanPage() {
             <p className="text-xs text-gray-500 mb-3">
               Escaneie o código de barras ou digite e pressione Enter.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 ref={barcodeRef}
                 type="text"
@@ -320,12 +320,12 @@ export default function NewLoanPage() {
                 onChange={(e) => setBarcode(e.target.value)}
                 placeholder="BG000001"
                 autoComplete="off"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-lg font-mono"
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-lg sm:text-xl font-mono"
               />
               <button
                 type="submit"
                 disabled={busy || !barcode.trim()}
-                className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50 whitespace-nowrap"
               >
                 {busy ? "..." : mode === "return" ? "Devolver" : "Continuar"}
               </button>
@@ -376,7 +376,7 @@ export default function NewLoanPage() {
             <p className="text-xs text-gray-500 mb-3">
               O usuário deve digitar a própria senha para confirmar o empréstimo.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 ref={passwordRef}
                 type="password"
@@ -389,7 +389,7 @@ export default function NewLoanPage() {
               <button
                 type="submit"
                 disabled={busy || !password}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
               >
                 {busy ? "..." : "Emprestar"}
               </button>

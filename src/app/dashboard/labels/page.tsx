@@ -34,9 +34,11 @@ interface LabelData {
   exemplarId: string;
   barcode: string;
   accessionNumber?: string;
+  exemplarIndex: number;
   callNumber: string;
   classification: string;
   cutter: string;
+  edition?: string | null;
   status: string;
   size: { w: number; h: number };
   catalog: {
@@ -143,7 +145,7 @@ export default function LabelsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-1">🏷️ Etiquetas</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">🏷️ Etiquetas</h1>
       <p className="text-sm text-gray-500 mb-6">
         Selecione os exemplares do acervo para imprimir as etiquetas de identificação.
       </p>
@@ -300,51 +302,69 @@ export default function LabelsPage() {
                     className="border border-gray-400 rounded p-1.5 flex flex-col bg-white overflow-hidden"
                     style={{ width: `${label.size.w}mm`, minHeight: `${label.size.h}mm` }}
                   >
-                    {/* ---------- Lombada ---------- */}
+                    {/* ---------- Lombada: classificação / cutter / edição / Ex.N ---------- */}
                     {label.type === "SPINE" && (
-                      <div className="flex h-full flex-col justify-center items-center text-center leading-none">
+                      <div className="flex h-full flex-col items-center justify-center text-center leading-none">
                         {label.classification && (
-                          <div className="font-mono text-[13px] font-bold leading-none">
+                          <div className="font-mono text-[13px] font-bold leading-tight">
                             {label.classification}
                           </div>
                         )}
                         {label.cutter && (
-                          <div className="font-mono text-[13px] font-bold leading-none">
+                          <div className="font-mono text-[13px] font-bold leading-tight">
                             {label.cutter}
                           </div>
                         )}
-                        {label.accessionNumber && (
-                          <div className="font-mono text-[8px] mt-0.5 text-gray-600">
-                            {label.accessionNumber}
+                        {label.edition && (
+                          <div className="font-mono text-[9px] leading-tight text-gray-700">
+                            {label.edition}
                           </div>
                         )}
+                        <div className="font-mono text-[9px] mt-0.5 text-gray-700">
+                          Ex.{label.exemplarIndex}
+                        </div>
                       </div>
                     )}
 
-                    {/* ---------- Frente ---------- */}
+                    {/* ---------- Identificação: campos nomeados + código de barras ---------- */}
                     {label.type === "FRONT" && (
-                      <div className="flex h-full flex-col leading-none gap-0.5">
-                        <div className="text-[6px] uppercase tracking-wide text-gray-500 border-b border-gray-300 pb-0.5 mb-0.5 truncate">
+                      <div className="flex h-full flex-col leading-tight gap-0.5">
+                        <div className="text-[6.5px] uppercase tracking-wide text-gray-500 border-b border-gray-300 pb-0.5 truncate">
                           {settings.libraryName}
                           {settings.libraryCode ? ` · ${settings.libraryCode}` : ""}
                         </div>
-                        <div className="font-bold text-[8.5px] line-clamp-2">
-                          {label.catalog.title}
-                          {label.catalog.subtitle ? ` : ${label.catalog.subtitle}` : ""}
-                        </div>
-                        <div className="text-[6.5px] text-gray-600 line-clamp-1">
-                          {label.catalog.authors?.join("; ")}
+
+                        {label.callNumber && (
+                          <div className="text-[7px]">
+                            <span className="text-gray-500">N.Cham.: </span>
+                            <span className="font-mono font-semibold">
+                              {label.callNumber}
+                            </span>
+                          </div>
+                        )}
+                        {label.catalog.authors?.length > 0 && (
+                          <div className="text-[6.5px]">
+                            <span className="text-gray-500">Autor: </span>
+                            <span className="line-clamp-1">
+                              {label.catalog.authors.join("; ")}
+                            </span>
+                          </div>
+                        )}
+                        <div className="text-[6.5px]">
+                          <span className="text-gray-500">Título: </span>
+                          <span className="line-clamp-2 font-semibold">
+                            {label.catalog.title}
+                          </span>
                         </div>
 
-                        <div className="font-mono text-[9px] font-bold mt-0.5">
-                          {[label.classification, label.cutter].filter(Boolean).join(" ")}
-                        </div>
-
-                        <div className="mt-auto">
-                          <Barcode39 value={label.barcode} heightMm={6} showText={false} />
-                          <div className="text-center font-mono text-[6.5px] text-gray-700">
+                        <div className="mt-auto pt-0.5">
+                          <Barcode39 value={label.barcode} heightMm={5} showText={false} />
+                          <div className="text-center font-mono text-[7px] text-gray-900 font-semibold">
                             {label.barcode}
-                            {label.accessionNumber ? ` · ac. ${label.accessionNumber}` : ""}
+                          </div>
+                          <div className="flex justify-between font-mono text-[6px] text-gray-600">
+                            <span>Ac.{label.accessionNumber || "—"}</span>
+                            <span>Ex.{label.exemplarIndex}</span>
                           </div>
                         </div>
                       </div>

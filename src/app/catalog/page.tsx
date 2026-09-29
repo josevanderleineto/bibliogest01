@@ -22,6 +22,8 @@ interface CatalogItem {
   cutterCode?: string;
   cdd?: string;
   cdu?: string;
+  tombo?: string;
+  coverUrl?: string;
   controlNumber?: string;
   subjects: string[];
   exemplars: Array<{
@@ -90,7 +92,7 @@ export default function PublicCatalogPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-primary-700 text-white py-8">
         <div className="max-w-4xl mx-auto px-4">
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-2xl sm:text-3xl font-bold">
             📚 Acervo — {settings.libraryName}
           </h1>
           <p className="text-primary-100 mt-1">{settings.institutionName}</p>
@@ -143,8 +145,18 @@ export default function PublicCatalogPage() {
           {items.map((item) => (
             <article
               key={item.id}
-              className="bg-white rounded-lg shadow p-4 hover:shadow-md transition"
+              className="bg-white rounded-lg shadow p-4 hover:shadow-md transition flex gap-3"
             >
+              {item.coverUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.coverUrl}
+                  alt={`Capa de ${item.title}`}
+                  loading="lazy"
+                  className="w-20 sm:w-24 h-auto object-cover rounded shrink-0 border border-gray-100"
+                />
+              )}
+              <div className="min-w-0 flex-1">
               <div className="flex items-start gap-2 mb-1">
                 <span className="text-lg">{item.materialType === "BOOK" ? "📗" : item.materialType === "PERIODICAL" ? "📘" : "📕"}</span>
                 <span className="text-xs text-gray-500 uppercase tracking-wide">
@@ -181,6 +193,12 @@ export default function PublicCatalogPage() {
                     </dd>
                   </div>
                 )}
+                {item.tombo && (
+                  <div className="flex gap-2">
+                    <dt className="text-gray-400 w-20 shrink-0">Tombo</dt>
+                    <dd className="font-mono">{item.tombo}</dd>
+                  </div>
+                )}
                 {item.subjects?.length > 0 && (
                   <div className="flex gap-2">
                     <dt className="text-gray-400 w-20 shrink-0">Assuntos</dt>
@@ -201,6 +219,7 @@ export default function PublicCatalogPage() {
                 >
                   Detalhes →
                 </Link>
+              </div>
               </div>
             </article>
           ))}

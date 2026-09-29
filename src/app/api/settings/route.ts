@@ -23,6 +23,18 @@ const clamp = (value: number, min: number, max: number) =>
 const str = (v: unknown, max = 200) =>
   typeof v === "string" ? v.trim().slice(0, max) : null;
 
+/** Só aceita http/https — evita injeção de javascript: no src da img. */
+const urlOrNull = (v: unknown, max = 600) => {
+  const s = str(v, max);
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+};
+
 // ============================================
 // GET - Configurações
 // ============================================
@@ -104,6 +116,16 @@ export async function PUT(request: NextRequest) {
       data.email = v;
     }
     if (body.website !== undefined) data.website = str(body.website, 200);
+    if (body.logoUrl !== undefined) {
+      const v = str(body.logoUrl, 600);
+      if (v && !urlOrNull(v)) {
+        return NextResponse.json(
+          { error: "URL do logotipo inválida (use http:// ou https://)" },
+          { status: 400 }
+        );
+      }
+      data.logoUrl = urlOrNull(v);
+    }
 
     if (body.loanDays !== undefined) {
       data.loanDays = clamp(Number(body.loanDays), 1, MAX.loanDays);

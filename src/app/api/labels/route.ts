@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       orderBy: { accessionNumber: "asc" },
     });
 
-    const labels = exemplars.map((exemplar) => {
+    const labels = exemplars.map((exemplar, i) => {
       const catalog = exemplar.catalog;
 
       // Número de chamada do exemplar; senão o do catálogo
@@ -106,9 +106,12 @@ export async function POST(request: NextRequest) {
         exemplarId: exemplar.id,
         barcode: exemplar.barcode,
         accessionNumber: exemplar.accessionNumber,
+        // "Ex.5" — posição do exemplar dentro do título
+        exemplarIndex: i + 1,
         callNumber: fullCall,
         classification,
         cutter,
+        edition: catalog.edition || null,
         status: exemplar.status,
         size: SIZES[type] ?? SIZES.SPINE,
         catalog: {

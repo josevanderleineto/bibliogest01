@@ -9,6 +9,18 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+/** Só aceita http/https — evita injeção de javascript: no src da img. */
+const urlOrNull = (v: unknown, max = 600) => {
+  const s = typeof v === "string" ? v.trim().slice(0, max) : null;
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+};
 import type { ExemplarStatus } from "@prisma/client";
 import {
   nextControlNumber,
@@ -57,6 +69,7 @@ export async function GET(request: NextRequest) {
         "classification",
         "cdd",
         "cdu",
+        "tombo",
         "seriesTitle",
         "generalNote",
       ];
@@ -218,6 +231,8 @@ export async function POST(request: NextRequest) {
         callNumber: body.callNumber,
         cutterCode,
         accessionNumber: accessions[0],
+        tombo: body.tombo?.trim() || null,
+        coverUrl: urlOrNull(body.coverUrl),
         totalCopies,
 
         // Periódicos (MARC 362)

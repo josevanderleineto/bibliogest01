@@ -130,7 +130,12 @@ model Catalog {
   // Código Cutter
   cutterCode      String?
 
-  // Número de acervo (gerado pelo sistema)
+  // Número de ACERVO (aquisição). Um por título adquirido.
+  // Todos os exemplares desta aquisição compartilham o mesmo
+  // número; acrescentar cópias não gera um novo.
+  acquisitionNumber String?
+
+  // Mantido por compatibilidade: espelha o número de acervo.
   accessionNumber String?
 
   // Número de tombo — opcional.
@@ -142,6 +147,13 @@ model Catalog {
   // URL da imagem da capa (hospedada externamente).
   // Ex.: https://... . Não é feito upload de arquivo.
   coverUrl        String?
+
+  // Texto consolidado para busca: título, autores, assuntos,
+  // chamada, cutter, ISBN, acervo e tombo, tudo em minúsculas.
+  // O Prisma só faz correspondência exata em campos de lista
+  // (authors, subjects), então a busca por parte do nome
+  // ("Souza" em "Souza, Ana") depende deste campo.
+  searchText      String?
 
   // Quantidade de exemplares
   totalCopies     Int       @default(1)
@@ -165,6 +177,8 @@ model Catalog {
   @@index([title])
   @@index([isbn])
   @@index([materialType])
+  @@index([acquisitionNumber])
+  @@index([searchText])
 }
 
 // ============================================
@@ -184,7 +198,11 @@ model Exemplar {
   id              String       @id @default(cuid())
   catalogId       String
   barcode         String       @unique
+  // Número de acervo: compartilhado por todos os exemplares do
+  // mesmo título. Só muda quando o item é adquirido de novo.
   accessionNumber String?
+  // Número do exemplar dentro do acervo (1º, 2º, 3º exemplar).
+  exemplarNumber  Int          @default(1)
   callNumber      String?
   cutterCode      String?
   status          ExemplarStatus @default(AVAILABLE)
@@ -202,6 +220,7 @@ model Exemplar {
   @@map("exemplars")
   @@index([catalogId])
   @@index([barcode])
+  @@index([accessionNumber])
   @@index([status])
 }
 

@@ -24,10 +24,11 @@ const urlOrNull = (v: unknown, max = 600) => {
 import type { ExemplarStatus } from "@prisma/client";
 import {
   nextControlNumber,
-  nextAccessionNumbers,
+  nextAcquisitionNumber,
+  nextBarcode,
   nextRegisterDate,
-  barcodeFromAccession,
   generateCutter,
+  buildSearchText,
 } from "@/lib/numbering";
 
 // Status válidos para inserção de exemplar
@@ -74,10 +75,14 @@ export async function GET(request: NextRequest) {
         "generalNote",
       ];
 
+      // searchText cobre também a busca por parte do nome do autor e
+      // por parte do assunto, que o `has` exato não encontra
+      // ("Souza" dentro de "Souza, Ana").
       const matchTerm = (term: string) => [
         ...scalarFields.map((f) => ({ [f]: { contains: term, mode: "insensitive" } })),
         { authors: { has: term } },
         { subjects: { has: term } },
+        { searchText: { contains: term.toLowerCase(), mode: "insensitive" } },
         {
           exemplars: {
             some: {
@@ -92,14 +97,30 @@ export async function GET(request: NextRequest) {
         },
       ];
 
-      // Termos separados por espaço: todos precisam existir (AND),
-      // para que "004.67 M278" encontre classificação + cutter.
-      const terms = query.trim().split(/\s+/).filter(Boolean);
-
-      if (terms.length > 1) {
-        where.AND = terms.map((term) => ({ OR: matchTerm(term) }));
+      // "Ex.3" / "exemplar 3" procura pelo número do exemplar.
+      // Substitui a busca por texto: não faz sentido procurar a
+      // string "Ex.3" no texto do registro.
+      const comoExemplar = query
+        .trim()
+        .match(/^(?:ex\.?|exemplar)\s*0*(\d{1,4})$/i);
+      if (comoExemplar) {
+        where.exemplars = {
+          ...(where.exemplars as object),
+          some: {
+            ...((where.exemplars as { some?: object })?.some ?? {}),
+            exemplarNumber: parseInt(comoExemplar[1], 10),
+          },
+        };
       } else {
-        where.OR = matchTerm(terms[0]);
+        // Termos separados por espaço: todos precisam existir (AND),
+        // para que "004.67 M278" encontre classificação + cutter.
+        const terms = query.trim().split(/\s+/).filter(Boolean);
+
+        if (terms.length > 1) {
+          where.AND = terms.map((term) => ({ OR: matchTerm(term) }));
+        } else {
+          where.OR = matchTerm(terms[0]);
+        }
       }
     }
 
@@ -122,10 +143,12 @@ export async function GET(request: NextRequest) {
               id: true,
               barcode: true,
               accessionNumber: true,
+              exemplarNumber: true,
               status: true,
               callNumber: true,
               cutterCode: true,
             },
+            orderBy: { exemplarNumber: "asc" },
           },
           _count: { select: { exemplars: true } },
         },
@@ -177,11 +200,33 @@ export async function POST(request: NextRequest) {
       : "AVAILABLE";
 
     // Números gerados automaticamente
-    const controlNumber = await nextControlNumber();           // MARC 001
-    const accessions = await nextAccessionNumbers(totalCopies); // 000001, 000002...
-    const registerDate = await nextRegisterDate();             // MARC 008
+    const controlNumber = await nextControlNumber();        // MARC 001
+    const acquisition = await nextAcquisitionNumber();     // nº do acervo
+    const registerDate = await nextRegisterDate();         // MARC 008
     const authors: string[] = Array.isArray(body.authors) ? body.authors : [];
     const cutterCode = body.cutterCode?.trim() || generateCutter(authors);
+    const subjects: string[] = Array.isArray(body.subjects) ? body.subjects : [];
+
+    // Texto consolidado para a busca. Montado agora, já com o
+    // número de acervo — que também precisa ser pesquisável.
+    const searchText = buildSearchText({
+      title: body.title.trim(),
+      subtitle: body.subtitle,
+      authors,
+      contributors: body.contributors,
+      subjects,
+      callNumber: body.callNumber,
+      cutterCode,
+      classification: body.classification,
+      cdd: body.cdd,
+      cdu: body.cdu,
+      isbn: body.isbn,
+      issn: body.issn,
+      edition: body.edition,
+      publisher: body.publisher,
+      tombo: body.tombo,
+      acquisition,
+    });
 
     const catalog = await prisma.catalog.create({
       data: {
@@ -214,7 +259,7 @@ export async function POST(request: NextRequest) {
         issn: body.issn,
 
         // MARC 650
-        subjects: body.subjects || [],
+        subjects,
 
         // MARC 082 + classificação
         classification: body.classification,
@@ -230,9 +275,11 @@ export async function POST(request: NextRequest) {
         // Operacional
         callNumber: body.callNumber,
         cutterCode,
-        accessionNumber: accessions[0],
+        acquisitionNumber: acquisition,
+        accessionNumber: acquisition,
         tombo: body.tombo?.trim() || null,
         coverUrl: urlOrNull(body.coverUrl),
+        searchText,
         totalCopies,
 
         // Periódicos (MARC 362)
@@ -245,15 +292,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Cria um exemplar por cópia, com número de acervo e etiqueta próprios
+    // Cria um exemplar por cópia.
+    // Todos compartilham o MESMO número de acervo — é o que mostra
+    // que são o mesmo item. O que muda é o número do exemplar e o
+    // código de barras, que precisa ser único para o leitor.
     const exemplars = [];
     for (let i = 0; i < totalCopies; i++) {
-      const accession = accessions[i];
       const exemplar = await prisma.exemplar.create({
         data: {
           catalogId: catalog.id,
-          accessionNumber: accession,
-          barcode: barcodeFromAccession(accession),
+          accessionNumber: acquisition,
+          exemplarNumber: i + 1,
+          barcode: await nextBarcode(),
           callNumber: catalog.callNumber,
           cutterCode: catalog.cutterCode,
           status: initialStatus,
@@ -261,6 +311,7 @@ export async function POST(request: NextRequest) {
         select: {
           id: true,
           accessionNumber: true,
+          exemplarNumber: true,
           barcode: true,
           status: true,
         },

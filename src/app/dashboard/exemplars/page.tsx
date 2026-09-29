@@ -11,6 +11,7 @@ interface Exemplar {
   id: string;
   barcode: string;
   accessionNumber?: string;
+  exemplarNumber?: number;
   status: string;
   callNumber?: string;
   cutterCode?: string;
@@ -131,12 +132,20 @@ export default function ExemplarsPage() {
             Cada exemplar tem número de acervo e código de barras próprios.
           </p>
         </div>
-        <Link
-          href="/dashboard/labels"
-          className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm"
-        >
-          🏷️ Etiquetas
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Link
+            href="/dashboard/exemplars/novo"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm text-center"
+          >
+            ➕ Inserir exemplar
+          </Link>
+          <Link
+            href="/dashboard/labels"
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm text-center"
+          >
+            🏷️ Etiquetas
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-3 mb-4 flex flex-col sm:flex-row gap-2">
@@ -167,7 +176,7 @@ export default function ExemplarsPage() {
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              {["Acervo", "Tombo", "Cód. barras", "Chamada", "Título", "Status", "Alterar"].map(
+              {["Acervo", "Ex.", "Tombo", "Cód. barras", "Chamada", "Título", "Status", "Alterar"].map(
                 (h) => (
                   <th
                     key={h}
@@ -182,14 +191,14 @@ export default function ExemplarsPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
                   Carregando...
                 </td>
               </tr>
             )}
             {!loading && exemplars.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
                   Nenhum exemplar encontrado.
                 </td>
               </tr>
@@ -199,6 +208,9 @@ export default function ExemplarsPage() {
                 <tr key={ex.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-sm text-gray-700">
                     {ex.accessionNumber || "—"}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-sm text-gray-700">
+                    {ex.exemplarNumber ? `Ex.${ex.exemplarNumber}` : "—"}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">
                     {ex.catalog.tombo || "—"}

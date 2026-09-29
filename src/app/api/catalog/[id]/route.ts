@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { generateCutter } from "@/lib/numbering";
+import { generateCutter, buildSearchText } from "@/lib/numbering";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +68,26 @@ export async function PUT(
 
     const current = await prisma.catalog.findUnique({
       where: { id: params.id },
-      select: { id: true, authors: true },
+      select: {
+        id: true,
+        authors: true,
+        contributors: true,
+        subjects: true,
+        title: true,
+        subtitle: true,
+        callNumber: true,
+        cutterCode: true,
+        classification: true,
+        cdd: true,
+        cdu: true,
+        isbn: true,
+        issn: true,
+        edition: true,
+        publisher: true,
+        tombo: true,
+        acquisitionNumber: true,
+        accessionNumber: true,
+      },
     });
 
     if (!current) {
@@ -76,6 +95,29 @@ export async function PUT(
     }
 
     const authors = Array.isArray(body.authors) ? body.authors : undefined;
+    const subjects = Array.isArray(body.subjects) ? body.subjects : undefined;
+    const contributors = Array.isArray(body.contributors) ? body.contributors : undefined;
+
+    // Refaz o texto de busca com os valores finais, para que a
+    // consulta por autor/assunto continue funcionando após editar.
+    const finais = {
+      title: body.title ?? current.title,
+      subtitle: body.subtitle ?? current.subtitle,
+      authors: authors ?? current.authors,
+      contributors: contributors ?? current.contributors,
+      subjects: subjects ?? current.subjects,
+      callNumber: body.callNumber ?? current.callNumber,
+      cutterCode: body.cutterCode ?? current.cutterCode,
+      classification: body.classification ?? current.classification,
+      cdd: body.cdd ?? current.cdd,
+      cdu: body.cdu ?? current.cdu,
+      isbn: body.isbn ?? current.isbn,
+      issn: body.issn ?? current.issn,
+      edition: body.edition ?? current.edition,
+      publisher: body.publisher ?? current.publisher,
+      tombo: body.tombo ?? current.tombo,
+      acquisition: current.acquisitionNumber ?? current.accessionNumber,
+    };
 
     const catalog = await prisma.catalog.update({
       where: { id: params.id },
@@ -85,7 +127,7 @@ export async function PUT(
         subtitle: body.subtitle,
         titleStatement: body.titleStatement,
         authors,
-        contributors: body.contributors,
+        contributors,
         edition: body.edition,
         publisher: body.publisher,
         publicationPlace: body.publicationPlace,
@@ -94,7 +136,7 @@ export async function PUT(
         seriesVolume: body.seriesVolume,
         isbn: body.isbn,
         issn: body.issn,
-        subjects: body.subjects,
+        subjects,
         classification: body.classification,
         cdd: body.cdd,
         cdu: body.cdu,
@@ -106,6 +148,7 @@ export async function PUT(
         cutterCode: body.cutterCode || (authors ? generateCutter(authors) : undefined),
         tombo: body.tombo?.trim() || null,
         coverUrl: body.coverUrl?.trim() || null,
+        searchText: buildSearchText(finais),
         volume: body.volume,
         number: body.number,
         period: body.period,

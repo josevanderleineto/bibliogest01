@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import type { ExemplarStatus } from "@prisma/client";
-import { barcodeFromAccession, nextAccessionNumbers } from "@/lib/numbering";
+import { nextBarcode, nextExemplarNumber } from "@/lib/numbering";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,7 @@ const EXEMPLAR_SELECT = {
   catalogId: true,
   barcode: true,
   accessionNumber: true,
+  exemplarNumber: true,
   callNumber: true,
   cutterCode: true,
   status: true,
@@ -92,16 +93,26 @@ export async function GET(request: NextRequest) {
     if (status) where.status = status;
     if (tombo) where.catalog = { tombo: { equals: tombo.trim(), mode: "insensitive" } };
     if (q) {
-      const matchTerm = (term: string) => [
-        { barcode: { contains: term, mode: "insensitive" } },
-        { accessionNumber: { contains: term, mode: "insensitive" } },
-        { callNumber: { contains: term, mode: "insensitive" } },
-        { cutterCode: { contains: term, mode: "insensitive" } },
-        { catalog: { title: { contains: term, mode: "insensitive" } } },
-        { catalog: { authors: { has: term } } },
-        { catalog: { classification: { contains: term, mode: "insensitive" } } },
-        { catalog: { tombo: { contains: term, mode: "insensitive" } } },
-      ];
+      const matchTerm = (term: string) => {
+        // "Ex.3" / "exemplar 3" procura pelo número do exemplar
+        const comoExemplar = term.match(/^(?:ex\.?|exemplar)\s*0*(\d{1,4})$/i);
+        if (comoExemplar) {
+          return [{ exemplarNumber: parseInt(comoExemplar[1], 10) }];
+        }
+        return [
+          { barcode: { contains: term, mode: "insensitive" } },
+          { accessionNumber: { contains: term, mode: "insensitive" } },
+          { callNumber: { contains: term, mode: "insensitive" } },
+          { cutterCode: { contains: term, mode: "insensitive" } },
+          { catalog: { title: { contains: term, mode: "insensitive" } } },
+          { catalog: { authors: { has: term } } },
+          { catalog: { subjects: { has: term } } },
+          { catalog: { classification: { contains: term, mode: "insensitive" } } },
+          { catalog: { accessionNumber: { contains: term, mode: "insensitive" } } },
+          // cobre busca por parte do nome do autor e do assunto
+          { catalog: { searchText: { contains: term.toLowerCase(), mode: "insensitive" } } },
+        ];
+      };
 
       // Todos os termos precisam existir (ex.: "004.67 M278")
       const terms = q.trim().split(/\s+/).filter(Boolean);
@@ -147,7 +158,10 @@ export async function GET(request: NextRequest) {
 }
 
 // ============================================
-// POST - Criar exemplar com número de acervo automático
+// POST - Inserir exemplar em acervo já existente
+//
+// Cópia do mesmo item NÃO vira registro novo: entra como
+// mais um exemplar dentro do mesmo número de acervo.
 // ============================================
 export async function POST(request: NextRequest) {
   try {
@@ -162,7 +176,13 @@ export async function POST(request: NextRequest) {
 
     const catalog = await prisma.catalog.findUnique({
       where: { id: body.catalogId },
-      select: { id: true, callNumber: true, cutterCode: true, totalCopies: true },
+      select: {
+        id: true,
+        callNumber: true,
+        cutterCode: true,
+        accessionNumber: true,
+        acquisitionNumber: true,
+      },
     });
 
     if (!catalog) {
@@ -176,27 +196,51 @@ export async function POST(request: NextRequest) {
       ? (requestedStatus as ExemplarStatus)
       : "AVAILABLE";
 
-    // Número de acervo automático
-    const [accession] = await nextAccessionNumbers(1);
+    // O acervo é o do registro: nunca muda ao acrescentar cópias.
+    const acervo = catalog.acquisitionNumber || catalog.accessionNumber || null;
 
-    const exemplar = await prisma.exemplar.create({
-      data: {
-        catalogId: catalog.id,
-        accessionNumber: accession,
-        barcode: barcodeFromAccession(accession),
-        callNumber: body.callNumber ?? catalog.callNumber,
-        cutterCode: body.cutterCode ?? catalog.cutterCode,
-        status,
-        internalNote: body.internalNote,
-      },
-      select: EXEMPLAR_SELECT,
+    // Quantas cópias inserir (padrão: 1)
+    const quantidade = Math.min(Math.max(1, parseInt(body.quantity) || 1), 200);
+
+    const created = [];
+    for (let i = 0; i < quantidade; i++) {
+      created.push(
+        await prisma.exemplar.create({
+          data: {
+            catalogId: catalog.id,
+            accessionNumber: acervo,
+            exemplarNumber: await nextExemplarNumber(catalog.id),
+            barcode: await nextBarcode(),
+            callNumber: body.callNumber ?? catalog.callNumber,
+            cutterCode: body.cutterCode ?? catalog.cutterCode,
+            status,
+            internalNote: body.internalNote,
+          },
+          select: {
+            ...EXEMPLAR_SELECT,
+            catalog: {
+              select: { id: true, title: true, accessionNumber: true },
+            },
+          },
+        })
+      );
+    }
+
+    // Mantém o total de cópias do catálogo em dia
+    const total = await prisma.exemplar.count({ where: { catalogId: catalog.id } });
+    await prisma.catalog.update({
+      where: { id: catalog.id },
+      data: { totalCopies: total },
     });
 
-    // Sincroniza o total de cópias do catálogo
-    const count = await prisma.exemplar.count({ where: { catalogId: catalog.id } });
-    await prisma.catalog.update({ where: { id: catalog.id }, data: { totalCopies: count } });
-
-    return NextResponse.json({ success: true, exemplar });
+    return NextResponse.json({
+      success: true,
+      exemplars: created,
+      message:
+        created.length === 1
+          ? "Exemplar inserido no acervo"
+          : `${created.length} exemplares inseridos no acervo`,
+    });
   } catch (error) {
     console.error("Exemplar create error:", error);
     return NextResponse.json(

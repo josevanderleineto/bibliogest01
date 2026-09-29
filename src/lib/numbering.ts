@@ -37,25 +37,95 @@ export async function nextRegisterDate(): Promise<string> {
   return `${y}${m}${d}`;
 }
 
-/** Próximos N números de acervo sequenciais (ex: 000001, 000002) */
-export async function nextAccessionNumbers(amount: number): Promise<string[]> {
-  if (amount <= 0) return [];
-  const final = await nextSequence("acervo", amount);
-  const start = final - amount + 1;
-  return Array.from({ length: amount }, (_, i) =>
-    (start + i).toString().padStart(6, "0")
-  );
+/**
+ * Próximo NÚMERO DE ACERVO.
+ *
+ * O acervo identifica a aquisição: um número por título adquirido.
+ * Todos os exemplares daquela aquisição compartilham o mesmo acervo —
+ * é o que permite reconhecer que duas cópias são o mesmo item.
+ * Só muda quando o título é adquirido novamente.
+ */
+export async function nextAcquisitionNumber(): Promise<string> {
+  const n = await nextSequence("acervo");
+  return n.toString().padStart(6, "0");
 }
 
 /**
- * Código de barras do exemplar.
+ * Próximo CÓDIGO DE BARRAS, único no acervo inteiro.
  *
- * Apenas dígitos: assim o bip funciona em qualquer leitor
- * (Code 39, Code 128, EAN-13, UPC) e pode ser lido por outros
- * sistemas de biblioteca, como no Koha.
+ * Cada exemplar físico tem o seu, porque o leitor precisa
+ * distinguir uma cópia da outra. Sequencial global para
+ * garantir que nenhum se repita.
  */
-export function barcodeFromAccession(accessionNumber: string): string {
-  return String(accessionNumber ?? "").replace(/\D+/g, "");
+export async function nextBarcode(): Promise<string> {
+  const n = await nextSequence("barcode");
+  return n.toString().padStart(6, "0");
+}
+
+/**
+ * Próximo NÚMERO DE EXEMPLAR dentro de um acervo.
+ * Conta os exemplares já inseridos e soma 1.
+ */
+export async function nextExemplarNumber(catalogId: string): Promise<number> {
+  const ultimo = await prisma.exemplar.findFirst({
+    where: { catalogId },
+    orderBy: { exemplarNumber: "desc" },
+    select: { exemplarNumber: true },
+  });
+  return (ultimo?.exemplarNumber ?? 0) + 1;
+}
+
+/**
+ * Monta o texto consolidado de busca de um registro.
+ *
+ * O Prisma só faz correspondência EXATA em campos de lista String[]
+ * (`authors`, `subjects`). Guardar "Souza, Ana" e pesquisar por
+ * "Souza" não encontra nada com `has`. Juntando tudo num único
+ * campo String, a busca por qualquer parte do valor funciona.
+ */
+export function buildSearchText(d: {
+  title?: string | null;
+  subtitle?: string | null;
+  authors?: string[] | null;
+  contributors?: string[] | null;
+  subjects?: string[] | null;
+  callNumber?: string | null;
+  cutterCode?: string | null;
+  classification?: string | null;
+  cdd?: string | null;
+  cdu?: string | null;
+  isbn?: string | null;
+  issn?: string | null;
+  edition?: string | null;
+  publisher?: string | null;
+  tombo?: string | null;
+  acquisition?: string | null;
+}): string {
+  const partes = [
+    d.title,
+    d.subtitle,
+    ...(d.authors ?? []),
+    ...(d.contributors ?? []),
+    ...(d.subjects ?? []),
+    d.callNumber,
+    d.cutterCode,
+    d.classification,
+    d.cdd,
+    d.cdu,
+    d.isbn,
+    d.issn,
+    d.edition,
+    d.publisher,
+    d.tombo,
+    d.acquisition,
+  ];
+
+  return partes
+    .filter((p): p is string => !!p && String(p).trim().length > 0)
+    .join(" ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Gera código Cutter a partir dos autores */

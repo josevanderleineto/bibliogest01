@@ -15,6 +15,7 @@ import BiblioGestLogo from "@/components/BiblioGestLogo";
 const NAV = [
   { href: "/dashboard", icon: "📊", label: "Painel" },
   { href: "/dashboard/catalog", icon: "📖", label: "Catalogação" },
+  { href: "/dashboard/import-export", icon: "🤝", label: "Import/Export" },
   { href: "/dashboard/exemplars", icon: "📚", label: "Exemplares" },
   { href: "/dashboard/loans", icon: "🧾", label: "Empréstimos" },
   { href: "/dashboard/loans/new", icon: "📋", label: "Balcão" },

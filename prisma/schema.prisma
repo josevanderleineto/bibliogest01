@@ -47,6 +47,66 @@ model User {
 }
 
 // ============================================
+// TABELAS DE AUTORIDADE (Author, Subject, Publisher)
+// ============================================
+
+model AuthorityAuthor {
+  id          String   @id @default(cuid())
+  name        String   @unique  // Formato: "Sobrenome, Nome"
+  normalized  String   @unique  // Normalizado para busca (sem acentos, minúsculas)
+  variantNames String[] @default([]) // Variações de nome
+  viafId      String?  // ID VIAF se disponível
+  lccnId      String?  // ID LCCN se disponível
+  source      String?  // Origem: "manual", "import", "viaf", "lccn"
+  note        String?  // Notas sobre o autor
+  usageCount  Int      @default(0) // Quantas vezes usado em catálogos
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("authority_authors")
+  @@index([normalized])
+  @@index([source])
+}
+
+model AuthoritySubject {
+  id          String   @id @default(cuid())
+  term        String   @unique  // Termo de assunto (ex.: "Internet")
+  normalized  String   @unique  // Normalizado para busca
+  broaderTerm String?  // Termo mais amplo (ex.: "Tecnologia")
+  narrowerTerms String[] @default([]) // Termos mais específicos
+  relatedTerms String[] @default([]) // Termos relacionados
+  source      String?  // Origem: "manual", "import", "lcsh", "bnbr"
+  note        String?  // Notas / definição do termo
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("authority_subjects")
+  @@index([normalized])
+  @@index([source])
+  @@index([broaderTerm])
+}
+
+model AuthorityPublisher {
+  id          String   @id @default(cuid())
+  name        String   @unique  // Nome da editora
+  normalized  String   @unique  // Normalizado para busca
+  place       String?  // Local da editora
+  country     String?  // País
+  isbnPrefix  String?  // Prefixo ISBN da editora
+  source      String?  // Origem: "manual", "import"
+  note        String?  // Notas
+  usageCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("authority_publishers")
+  @@index([normalized])
+  @@index([place])
+  @@index([source])
+}
+
+// ============================================
 // CATÁLOGO (Registros MARC 21)
 // ============================================
 
@@ -113,6 +173,12 @@ model Catalog {
   // MARC 500 - Nota Geral ($a)
   generalNote     String?
 
+  // MARC 505 - Nota de Conteúdo / Sumário.
+  // contentNote mantém uma versão legível, e contentNoteMarc preserva
+  // indicadores e subcampos para importação/exportação MARC.
+  contentNote     String?
+  contentNoteMarc Json     @default("{}")
+
   // MARC 510 - Referência Bibliográfica ($a)
   bibReference    String?
 
@@ -163,6 +229,12 @@ model Catalog {
   number          String?
   period          String?
 
+  // Catalogação cooperativa
+  importSource    String?   // Biblioteca de origem da importação
+  importDate      DateTime? // Data da importação
+  importMarcData  String?   // Dados MARC originais (entre <inicio> <fim>)
+  exportedTo      String[]  @default([]) // Bibliotecas para onde foi exportado
+
   // Metadata
   createdBy       String?
   createdAt       DateTime  @default(now())
@@ -179,6 +251,7 @@ model Catalog {
   @@index([materialType])
   @@index([acquisitionNumber])
   @@index([searchText])
+  @@index([importSource])
 }
 
 // ============================================

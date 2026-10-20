@@ -148,6 +148,7 @@ export async function PUT(
         cutterCode: body.cutterCode || (authors ? generateCutter(authors) : undefined),
         tombo: body.tombo?.trim() || null,
         coverUrl: body.coverUrl?.trim() || null,
+        fixedFields: body.fixedFields?.trim() || null,
         searchText: buildSearchText(finais),
         volume: body.volume,
         number: body.number,

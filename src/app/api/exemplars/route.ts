@@ -11,6 +11,65 @@ import { nextBarcode, nextExemplarNumber } from "@/lib/numbering";
 
 export const dynamic = "force-dynamic";
 
+// ============================================
+// Helpers copiados de catalog/route.ts
+// ============================================
+
+type Marc505 = {
+  indicator1: string;
+  indicator2: string;
+  subfields: Array<{ code: "a" | "g" | "r" | "t"; value: string }>;
+};
+
+function normalizeMarc505(value: unknown, fallback?: unknown): { marc: Marc505; display: string } {
+  const raw = value && typeof value === "object" ? value as Partial<Marc505> : {};
+  const validCode = new Set(["a", "g", "r", "t"]);
+  const subfields = Array.isArray(raw.subfields)
+    ? (raw.subfields as unknown[])
+        .filter((item) => !!item && typeof item === "object")
+        .map((item: any) => ({ code: String(item.code).toLowerCase(), value: String(item.value ?? "").trim() }))
+        .filter((item) => validCode.has(item.code) && Boolean(item.value))
+        .map((item) => ({ code: item.code as Marc505["subfields"][number]["code"], value: item.value }))
+    : [];
+
+  if (subfields.length === 0 && typeof fallback === "string" && fallback.trim()) {
+    subfields.push({ code: "a", value: fallback.trim() });
+  }
+
+  const indicator = (value: unknown) => typeof value === "string" && /^[0-9 ]$/.test(value) ? value : " ";
+  const marc = {
+    indicator1: indicator(raw.indicator1),
+    indicator2: indicator(raw.indicator2),
+    subfields,
+  };
+  return { marc, display: subfields.map((field) => field.value).join(" -- ") };
+}
+
+function normalizeAuthority(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+async function registerAuthorities(authors: string[], contributors: string[], subjects: string[], publisher?: unknown, place?: unknown) {
+  const people = Array.from(new Set([...authors, ...contributors]));
+  await Promise.all([
+    ...people.map((name) => prisma.authorityAuthor.upsert({
+      where: { normalized: normalizeAuthority(name) },
+      create: { name, normalized: normalizeAuthority(name), source: "manual" },
+      update: {},
+    })),
+    ...subjects.map((term) => prisma.authoritySubject.upsert({
+      where: { normalized: normalizeAuthority(term) },
+      create: { term, normalized: normalizeAuthority(term), source: "manual" },
+      update: {},
+    })),
+    ...(typeof publisher === "string" && publisher.trim() ? [prisma.authorityPublisher.upsert({
+      where: { normalized: normalizeAuthority(publisher) },
+      create: { name: publisher.trim(), normalized: normalizeAuthority(publisher), place: typeof place === "string" ? place.trim() || null : null, source: "manual" },
+      update: {},
+    })] : []),
+  ]);
+}
+
 const EXEMPLAR_SELECT = {
   id: true,
   catalogId: true,
@@ -251,12 +310,53 @@ export async function POST(request: NextRequest) {
 }
 
 // ============================================
-// PUT - Alterar status / dados do exemplar
+// PUT - Alterar status / dados do exemplar E catálogo
 // ============================================
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, internalNote, callNumber, cutterCode } = body;
+    const { 
+      id, 
+      status, 
+      internalNote, 
+      callNumber, 
+      cutterCode, 
+      barcode, 
+      accessionNumber,
+      // Campos do catálogo (opcionais, para edição completa)
+      catalogId,
+      title,
+      subtitle,
+      titleStatement,
+      authors,
+      contributors,
+      edition,
+      publisher,
+      publicationPlace,
+      publicationYear,
+      seriesTitle,
+      seriesVolume,
+      isbn,
+      issn,
+      subjects,
+      classification,
+      cdd,
+      cdu,
+      physicalDesc,
+      generalNote,
+      contentNote,
+      contentNoteMarc,
+      bibReference,
+      uniformSeriesTitle,
+      tombo,
+      coverUrl,
+      fixedFields,
+      volume,
+      number,
+      period,
+      materialType,
+      customFields,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -267,15 +367,16 @@ export async function PUT(request: NextRequest) {
 
     const current = await prisma.exemplar.findUnique({
       where: { id },
-      select: { id: true, status: true, catalogId: true },
+      select: { id: true, status: true, catalogId: true, barcode: true },
     });
 
     if (!current) {
       return NextResponse.json({ error: "Exemplar não encontrado" }, { status: 404 });
     }
 
-    // Não permite marcar como disponível enquanto houver empréstimo ativo
-    if (status && status !== "AVAILABLE" && current.status === "AVAILABLE") {
+    // O status de um exemplar com empréstimo ativo é controlado pelo fluxo
+    // de empréstimos/devoluções, para não deixar o acervo inconsistente.
+    if (status && String(status).toUpperCase() !== current.status) {
       const activeLoan = await prisma.loan.findFirst({
         where: { exemplarId: id, status: { in: ["ACTIVE", "OVERDUE", "RENEWED"] } },
         select: { id: true },
@@ -299,6 +400,147 @@ export async function PUT(request: NextRequest) {
     if (internalNote !== undefined) data.internalNote = internalNote;
     if (callNumber !== undefined) data.callNumber = callNumber;
     if (cutterCode !== undefined) data.cutterCode = cutterCode;
+    if (accessionNumber !== undefined) data.accessionNumber = accessionNumber || null;
+    if (barcode !== undefined) {
+      const normalizedBarcode = String(barcode).trim();
+      if (!normalizedBarcode) {
+        return NextResponse.json({ error: "O código de barras é obrigatório" }, { status: 400 });
+      }
+      if (normalizedBarcode !== current.barcode) {
+        const barcodeInUse = await prisma.exemplar.findUnique({
+          where: { barcode: normalizedBarcode },
+          select: { id: true },
+        });
+        if (barcodeInUse) {
+          return NextResponse.json(
+            { error: "Este código de barras já pertence a outro exemplar" },
+            { status: 409 }
+          );
+        }
+      }
+      data.barcode = normalizedBarcode;
+    }
+
+    // Se há dados do catálogo, atualiza também o registro bibliográfico
+    let updatedCatalog = null;
+    const hasCatalogData = title !== undefined || authors !== undefined || contributors !== undefined ||
+      edition !== undefined || publisher !== undefined || publicationPlace !== undefined ||
+      publicationYear !== undefined || seriesTitle !== undefined || seriesVolume !== undefined ||
+      isbn !== undefined || issn !== undefined || subjects !== undefined || classification !== undefined ||
+      cdd !== undefined || cdu !== undefined || physicalDesc !== undefined || generalNote !== undefined ||
+      contentNote !== undefined || contentNoteMarc !== undefined || bibReference !== undefined ||
+      uniformSeriesTitle !== undefined || tombo !== undefined || coverUrl !== undefined ||
+      fixedFields !== undefined || volume !== undefined || number !== undefined || period !== undefined ||
+      materialType !== undefined || subtitle !== undefined || titleStatement !== undefined ||
+      callNumber !== undefined || cutterCode !== undefined || customFields !== undefined;
+
+    if (hasCatalogData && catalogId) {
+      const { generateCutter, buildSearchText } = await import("@/lib/numbering");
+      // urlOrNull helper - copy from catalog/route.ts
+      const urlOrNull = (v: unknown, max = 600) => {
+        const s = typeof v === "string" ? v.trim().slice(0, max) : null;
+        if (!s) return null;
+        try {
+          const u = new URL(s);
+          return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null;
+        } catch {
+          return null;
+        }
+      };
+      
+      // Busca o catálogo atual para mesclar dados
+      const currentCatalog = await prisma.catalog.findUnique({
+        where: { id: catalogId },
+      });
+      
+      if (currentCatalog) {
+        const list = (value: unknown): string[] => Array.from(new Map(
+          (Array.isArray(value) ? value : []).filter((v): v is string => typeof v === "string")
+            .map((v) => v.trim()).filter(Boolean)
+            .map((v) => [v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(), v] as const)
+        ).values());
+        
+        const finalAuthors = list(authors ?? currentCatalog.authors);
+        const finalContributors = list(contributors ?? currentCatalog.contributors);
+        const finalSubjects = list(subjects ?? currentCatalog.subjects);
+        const finalCutterCode = String(cutterCode ?? currentCatalog.cutterCode ?? generateCutter(finalAuthors)).trim();
+        
+        const marc505 = normalizeMarc505(contentNoteMarc ?? currentCatalog.contentNoteMarc, contentNote ?? currentCatalog.contentNote);
+        
+        const searchText = buildSearchText({ 
+          title: (title ?? currentCatalog.title).trim(), 
+          subtitle: subtitle ?? currentCatalog.subtitle, 
+          authors: finalAuthors, 
+          contributors: finalContributors, 
+          subjects: finalSubjects, 
+          callNumber: callNumber ?? currentCatalog.callNumber, 
+          cutterCode: finalCutterCode, 
+          classification: classification ?? currentCatalog.classification, 
+          cdd: cdd ?? currentCatalog.cdd, 
+          cdu: cdu ?? currentCatalog.cdu, 
+          isbn: isbn ?? currentCatalog.isbn, 
+          issn: issn ?? currentCatalog.issn, 
+          edition: edition ?? currentCatalog.edition, 
+          publisher: publisher ?? currentCatalog.publisher, 
+          tombo: tombo ?? currentCatalog.tombo, 
+          acquisition: currentCatalog.acquisitionNumber, 
+          contentNote: marc505.display 
+        });
+        
+        await registerAuthorities(finalAuthors, finalContributors, finalSubjects, publisher ?? currentCatalog.publisher, publicationPlace ?? currentCatalog.publicationPlace);
+        
+        updatedCatalog = await prisma.catalog.update({
+          where: { id: catalogId },
+          data: {
+            materialType: materialType ?? currentCatalog.materialType,
+            title: title ?? currentCatalog.title,
+            subtitle: subtitle ?? currentCatalog.subtitle,
+            titleStatement: titleStatement ?? currentCatalog.titleStatement,
+            authors: finalAuthors,
+            contributors: finalContributors,
+            edition: edition ?? currentCatalog.edition,
+            publisher: publisher ?? currentCatalog.publisher,
+            publicationPlace: publicationPlace ?? currentCatalog.publicationPlace,
+            publicationYear: publicationYear ?? currentCatalog.publicationYear,
+            seriesTitle: seriesTitle ?? currentCatalog.seriesTitle,
+            seriesVolume: seriesVolume ?? currentCatalog.seriesVolume,
+            isbn: isbn ?? currentCatalog.isbn,
+            issn: issn ?? currentCatalog.issn,
+            subjects: finalSubjects,
+            classification: classification ?? currentCatalog.classification,
+            cdd: cdd ?? currentCatalog.cdd,
+            cdu: cdu ?? currentCatalog.cdu,
+            physicalDesc: physicalDesc ?? currentCatalog.physicalDesc,
+            generalNote: generalNote ?? currentCatalog.generalNote,
+            contentNote: marc505.display || null,
+            contentNoteMarc: marc505.marc,
+            bibReference: bibReference ?? currentCatalog.bibReference,
+            uniformSeriesTitle: uniformSeriesTitle ?? currentCatalog.uniformSeriesTitle,
+            callNumber: callNumber ?? currentCatalog.callNumber,
+            cutterCode: finalCutterCode || null,
+            tombo: tombo ?? currentCatalog.tombo,
+            coverUrl: urlOrNull(coverUrl ?? currentCatalog.coverUrl),
+            fixedFields: fixedFields ?? currentCatalog.fixedFields,
+            volume: volume ?? currentCatalog.volume,
+            number: number ?? currentCatalog.number,
+            period: period ?? currentCatalog.period,
+            customFields: Array.isArray(customFields) ? customFields : (Array.isArray(currentCatalog.customFields) ? currentCatalog.customFields : []),
+            searchText,
+          },
+        });
+        
+        // Propaga callNumber e cutterCode para TODOS os exemplares do catálogo
+        if (callNumber !== undefined || cutterCode !== undefined) {
+          await prisma.exemplar.updateMany({
+            where: { catalogId },
+            data: {
+              ...(callNumber !== undefined ? { callNumber } : {}),
+              ...(cutterCode !== undefined ? { cutterCode: finalCutterCode } : {}),
+            },
+          });
+        }
+      }
+    }
 
     const exemplar = await prisma.exemplar.update({
       where: { id },
@@ -306,7 +548,7 @@ export async function PUT(request: NextRequest) {
       select: EXEMPLAR_SELECT,
     });
 
-    return NextResponse.json({ success: true, exemplar });
+    return NextResponse.json({ success: true, exemplar, catalog: updatedCatalog });
   } catch (error) {
     console.error("Exemplar update error:", error);
     return NextResponse.json(

@@ -100,6 +100,7 @@ export function buildSearchText(d: {
   publisher?: string | null;
   tombo?: string | null;
   acquisition?: string | null;
+  contentNote?: string | null;
 }): string {
   const partes = [
     d.title,
@@ -118,6 +119,7 @@ export function buildSearchText(d: {
     d.publisher,
     d.tombo,
     d.acquisition,
+    d.contentNote,
   ];
 
   return partes

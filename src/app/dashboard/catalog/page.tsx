@@ -40,6 +40,12 @@ const EMPTY = {
   coverUrl: "",
   physicalDesc: "",
   generalNote: "",
+  contentNote: "",
+  contentNoteIndicator1: " ",
+  contentNoteIndicator2: " ",
+  contentNoteG: "",
+  contentNoteR: "",
+  contentNoteT: "",
   bibReference: "",
   uniformSeriesTitle: "",
   callNumber: "",
@@ -49,6 +55,15 @@ const EMPTY = {
   number: "",
   period: "",
   exemplarStatus: "AVAILABLE",
+  fixedFields: "", // MARC 008 - elementos de tamanho fixo
+
+  // Catalogação cooperativa
+  importMode: false,
+  fromLibrary: "",
+  marcData: "",
+  tagsInicial: "&lt;inicio&gt;",
+  tagsFinal: "&lt;fim&gt;",
+  overwriteImport: true,
 };
 
 const STATUS_OPTIONS = [
@@ -77,6 +92,7 @@ interface Found {
 const field =
   "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
 const label = "block text-sm font-medium text-gray-700 mb-1";
+const labelWithHint = (hint: string) => `block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1${hint}`;
 
 export default function CatalogPage() {
   const [form, setForm] = useState({ ...EMPTY });
@@ -87,13 +103,20 @@ export default function CatalogPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{ controlNumber: string; exemplars: any[] } | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<{
+    id: string;
+    controlNumber: string;
+    exemplars: any[];
+  } | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [found, setFound] = useState<Found[]>([]);
   const [searched, setSearched] = useState(false);
 
-  const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: string, v: string | number | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const list = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
   // ---------- Consulta interna ----------
@@ -118,6 +141,109 @@ export default function CatalogPage() {
     }
   }, [query]);
 
+  const loadRecordForEdit = useCallback(async (controlNumber: string) => {
+    setEditLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/catalog?controlNumber=' + controlNumber);
+      const data = await res.json();
+      if (res.ok && data.catalogs && data.catalogs.length > 0) {
+        const catalog = data.catalogs[0];
+        
+        // Extrai subcampos do contentNoteMarc (MARC 505) de forma segura
+        const cnMarc = catalog.contentNoteMarc || {};
+        const cnSubfields = Array.isArray(cnMarc.subfields) ? cnMarc.subfields : [];
+        const getSubfield = (code: string) => cnSubfields.find((f: any) => f.code === code)?.value || '';
+        
+        // Determina o status inicial do exemplar baseado no primeiro exemplar existente
+        const firstExemplarStatus = catalog.exemplars?.[0]?.status || 'AVAILABLE';
+        
+        // Preenche TODOS os campos do formulário com dados do banco
+        setForm({
+          ...EMPTY,
+          // Identificação e tipo
+          materialType: catalog.materialType || 'BOOK',
+          title: catalog.title || '',
+          subtitle: catalog.subtitle || '',
+          titleStatement: catalog.titleStatement || '',
+          
+          // Responsáveis
+          authors: Array.isArray(catalog.authors) ? catalog.authors.join(', ') : '',
+          contributors: Array.isArray(catalog.contributors) ? catalog.contributors.join(', ') : '',
+          
+          // Publicação
+          edition: catalog.edition || '',
+          publisher: catalog.publisher || '',
+          publicationPlace: catalog.publicationPlace || '',
+          publicationYear: catalog.publicationYear || '',
+          seriesTitle: catalog.seriesTitle || '',
+          seriesVolume: catalog.seriesVolume || '',
+          
+          // Identificadores
+          isbn: catalog.isbn || '',
+          issn: catalog.issn || '',
+          subjects: Array.isArray(catalog.subjects) ? catalog.subjects.join(', ') : '',
+          
+          // Classificação
+          classification: catalog.classification || '',
+          cdd: catalog.cdd || '',
+          cdu: catalog.cdu || '',
+          callNumber: catalog.callNumber || '',
+          cutterCode: catalog.cutterCode || '',
+          
+          // Descrição física e notas
+          physicalDesc: catalog.physicalDesc || '',
+          fixedFields: catalog.fixedFields || '',
+          generalNote: catalog.generalNote || '',
+          bibReference: catalog.bibReference || '',
+          uniformSeriesTitle: catalog.uniformSeriesTitle || '',
+          
+          // MARC 505 - Nota de conteúdo / Sumário (com indicadores e subcampos)
+          contentNote: getSubfield('a') || catalog.contentNote || '',
+          contentNoteIndicator1: cnMarc.indicator1 || ' ',
+          contentNoteIndicator2: cnMarc.indicator2 || ' ',
+          contentNoteG: getSubfield('g'),
+          contentNoteR: getSubfield('r'),
+          contentNoteT: getSubfield('t'),
+          
+          // Operacionais
+          tombo: catalog.tombo || '',
+          coverUrl: catalog.coverUrl || '',
+          totalCopies: catalog.totalCopies || 1,
+          exemplarStatus: firstExemplarStatus,
+          
+          // Periódicos (MARC 362)
+          volume: catalog.volume || '',
+          number: catalog.number || '',
+          period: catalog.period || '',
+          
+          // Campos de importação (preservados para re-exportação)
+          importMode: false,
+          fromLibrary: catalog.importSource || '',
+          marcData: catalog.importMarcData || '',
+          tagsInicial: '<inicio>',
+          tagsFinal: '<fim>',
+          overwriteImport: true,
+        });
+        
+        setEditingRecord({
+          id: catalog.id,
+          controlNumber: catalog.controlNumber,
+          exemplars: catalog.exemplars || [],
+        });
+        setCustomFields(Array.isArray(catalog.customFields) ? catalog.customFields : []);
+        setEditMode(true);
+        setMessage('Registro carregado para edição. Todos os campos foram preenchidos.');
+      } else {
+        setError('Registro não encontrado');
+      }
+    } catch {
+      setError('Erro de conexão ao carregar registro');
+    } finally {
+      setEditLoading(false);
+    }
+  }, []);
+
   const addCustomField = () => {
     if (newField.tag && newField.value) {
       setCustomFields((p) => [...p, { ...newField }]);
@@ -129,6 +255,13 @@ export default function CatalogPage() {
     setForm({ ...EMPTY });
     setCustomFields([]);
   };
+
+  // ---------- Catalogação Cooperativa ----------
+  const [exportToLibrary, setExportToLibrary] = useState("");
+  const [exportFormat, setExportFormat] = useState<"marc" | "json">("marc");
+  const [exportTagInicial, setExportTagInicial] = useState("&lt;inicio&gt;");
+  const [exportTagFinal, setExportTagFinal] = useState("&lt;fim&gt;");
+  const [exportResult, setExportResult] = useState("");
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,18 +278,73 @@ export default function CatalogPage() {
       return;
     }
 
-    setLoading(true);
+
+    // Se modo edição, faz PUT em vez de POST
+    const isEdit = editMode && editingRecord;
+    if (isEdit) {
+      setLoading(true);
+      try {
+        const { importMode, fromLibrary, marcData, tagsInicial, tagsFinal, overwriteImport, ...formData } = form;
+        const contentNoteMarc = {
+          indicator1: form.contentNoteIndicator1,
+          indicator2: form.contentNoteIndicator2,
+          subfields: [
+            ["a", form.contentNote], ["g", form.contentNoteG], ["r", form.contentNoteR], ["t", form.contentNoteT],
+          ].filter(([, value]) => Boolean(String(value).trim())).map(([code, value]) => ({ code, value: String(value).trim() })),
+        };
+        const res = await fetch("/api/catalog", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingRecord.id,
+            ...formData,
+            authors: list(formData.authors),
+            contributors: list(formData.contributors),
+            subjects: list(formData.subjects),
+            totalCopies: Number(formData.totalCopies) || 1,
+            customFields,
+            contentNoteMarc,
+            exemplars: editingRecord.exemplars,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          setError(data.error || "Erro ao atualizar registro");
+          return;
+        }
+        setMessage("Registro e exemplares atualizados com sucesso");
+        setEditMode(false);
+        setEditingRecord(null);
+        resetForm();
+      } catch {
+        setError("Erro de conexão ao atualizar registro");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+setLoading(true);
     try {
+      // Exclui campos de UI da importação/exportação
+      const { importMode, fromLibrary, marcData, tagsInicial, tagsFinal, overwriteImport, ...formData } = form;
+      const contentNoteMarc = {
+        indicator1: form.contentNoteIndicator1,
+        indicator2: form.contentNoteIndicator2,
+        subfields: [
+          ["a", form.contentNote], ["g", form.contentNoteG], ["r", form.contentNoteR], ["t", form.contentNoteT],
+        ].filter(([, value]) => Boolean(String(value).trim())).map(([code, value]) => ({ code, value: String(value).trim() })),
+      };
       const res = await fetch("/api/catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
-          authors: list(form.authors),
-          contributors: list(form.contributors),
-          subjects: list(form.subjects),
-          totalCopies: Number(form.totalCopies) || 1,
+          ...formData,
+          authors: list(formData.authors),
+          contributors: list(formData.contributors),
+          subjects: list(formData.subjects),
+          totalCopies: Number(formData.totalCopies) || 1,
           customFields,
+          contentNoteMarc,
         }),
       });
       const data = await res.json();
@@ -252,7 +440,13 @@ export default function CatalogPage() {
                         {c.callNumber || "—"} {c.cutterCode || ""} ·{" "}
                         {c._count?.exemplars ?? 0} exemplar(es)
                       </p>
-                    </li>
+                                        <button
+                      type="button"
+                      onClick={() => c.controlNumber && loadRecordForEdit(c.controlNumber)}
+                      className="ml-2 text-xs text-primary-600 hover:underline"
+                    >
+                      ✏️ Editar
+                    </button></li>
                   ))}
                 </ul>
               </>
@@ -294,6 +488,29 @@ export default function CatalogPage() {
       {error && (
         <div className="mb-4 p-3 rounded bg-red-100 text-red-700 text-sm">{error}</div>
       )}
+      {editMode && editingRecord && (
+        <div className="mb-4 p-3 rounded bg-blue-50 border border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-blue-800 font-medium">✏️ Modo Edição</span>
+              <span className="text-sm text-blue-600 px-2 py-0.5 bg-blue-100 rounded">
+                Controle: {editingRecord.controlNumber}
+              </span>
+              <span className="text-sm text-blue-600 px-2 py-0.5 bg-blue-100 rounded">
+                {editingRecord.exemplars.length} exemplar(es)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setEditMode(false); setEditingRecord(null); setForm({ ...EMPTY }); setMessage(''); }}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Cancelar edição
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* ---------- Formulário ---------- */}
       <form onSubmit={submit} className="bg-white rounded-lg shadow p-6 space-y-6">
@@ -418,11 +635,12 @@ export default function CatalogPage() {
               />
             </div>
             <div>
-              <label className={label}>Autor secundário (700)</label>
+              <label className={label}>Autoridade secundária (700) — Separe por vírgula.</label>
               <input
                 value={form.contributors}
                 onChange={(e) => set("contributors", e.target.value)}
                 className={field}
+                placeholder="Silva, João, Santos, Maria"
               />
             </div>
           </div>
@@ -448,7 +666,7 @@ export default function CatalogPage() {
               />
             </div>
             <div>
-              <label className={label}>Código Cutter (gerado se vazio)</label>
+              <label className={label}>Código Cutter ou PHA</label>
               <input
                 value={form.cutterCode}
                 onChange={(e) => set("cutterCode", e.target.value)}
@@ -593,10 +811,10 @@ export default function CatalogPage() {
           </div>
         </section>
 
-        {/* 300 / 500 / 510 / 830 */}
+        {/* 300 / 500 / 505 / 510 / 830 / 008 */}
         <section className="border-l-4 border-gray-500 pl-4">
           <h2 className="font-bold text-gray-600 mb-3">
-            Notas e descrição física — MARC 300, 500, 510, 830
+            Notas e descrição física — MARC 300, 500, 505, 510, 830, 008
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -607,6 +825,18 @@ export default function CatalogPage() {
                 className={field}
                 placeholder="176 p. ; 21 cm"
               />
+            </div>
+            <div>
+              <label className={label}>MARC 008 — Campos fixos (fixedFields)</label>
+              <input
+                value={form.fixedFields}
+                onChange={(e) => set("fixedFields", e.target.value)}
+                className={field}
+                placeholder="Ex.: 230101s2023    br a     000 0 por d"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Elementos de tamanho fixo (Leader + 008). Gerado automaticamente se vazio.
+              </p>
             </div>
             <div>
               <label className={label}>Título uniforme de série (830 $a)</label>
@@ -624,6 +854,39 @@ export default function CatalogPage() {
                 onChange={(e) => set("generalNote", e.target.value)}
                 className={field}
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className={label}>Nota de conteúdo / Sumário (MARC 505)</label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+                <label className="text-xs text-gray-500">
+                  Indicador 1
+                  <select value={form.contentNoteIndicator1} onChange={(e) => set("contentNoteIndicator1", e.target.value)} className={field}>
+                    <option value=" ">em branco</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="8">8</option>
+                  </select>
+                </label>
+                <label className="text-xs text-gray-500">
+                  Indicador 2
+                  <select value={form.contentNoteIndicator2} onChange={(e) => set("contentNoteIndicator2", e.target.value)} className={field}>
+                    <option value=" ">em branco</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="8">8</option>
+                  </select>
+                </label>
+                <label className="text-xs text-gray-500 col-span-2 sm:col-span-3">
+                  $t — Título da parte
+                  <input value={form.contentNoteT} onChange={(e) => set("contentNoteT", e.target.value)} className={field} placeholder="Título de capítulo ou obra" />
+                </label>
+              </div>
+              <textarea
+                rows={3}
+                value={form.contentNote}
+                onChange={(e) => set("contentNote", e.target.value)}
+                className={field}
+                placeholder="$a — Nota de conteúdo / sumário"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <input value={form.contentNoteG} onChange={(e) => set("contentNoteG", e.target.value)} className={field} placeholder="$g — Informações diversas" />
+                <input value={form.contentNoteR} onChange={(e) => set("contentNoteR", e.target.value)} className={field} placeholder="$r — Declaração de responsabilidade" />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Os subcampos preenchidos são preservados na exportação MARC.</p>
             </div>
             <div>
               <label className={label}>Referência bibliográfica (510 $a)</label>
@@ -728,6 +991,178 @@ export default function CatalogPage() {
           )}
         </section>
 
+        {/* ---------- Exemplares (apenas no modo edição) ---------- */}
+        {editMode && editingRecord && (
+          <section className="border-l-4 border-orange-500 pl-4 bg-orange-50 rounded-r-lg">
+            <h2 className="font-bold text-orange-700 mb-3 flex items-center gap-2">
+              📦 Exemplares do Registro ({editingRecord.exemplars.length})
+            </h2>
+            <p className="text-xs text-orange-600 mb-4">
+              Cada exemplar tem seu próprio número de acervo e código de barras. Edite os campos abaixo e salve o registro para aplicar as alterações.
+            </p>
+            <div className="space-y-3">
+              {editingRecord.exemplars.map((ex: any, idx: number) => (
+                <div
+                  key={ex.id}
+                  className="bg-white p-4 rounded border border-orange-200 shadow-sm"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-orange-800">Exemplar {ex.exemplarNumber || idx + 1}</h4>
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                      ex.status === 'AVAILABLE' ? 'bg-green-100 text-green-700' :
+                      ex.status === 'LOANED' ? 'bg-yellow-100 text-yellow-700' :
+                      ex.status === 'PROCESSING' ? 'bg-blue-100 text-blue-700' :
+                      ex.status === 'MAINTENANCE' ? 'bg-gray-100 text-gray-700' :
+                      ex.status === 'RESTORATION' ? 'bg-purple-100 text-purple-700' :
+                      ex.status === 'LOST' ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {ex.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Nº Acervo</label>
+                      <input
+                        type="text"
+                        value={ex.accessionNumber || ''}
+                        onChange={(e) => {
+                          const updated = [...editingRecord.exemplars];
+                          updated[idx] = { ...updated[idx], accessionNumber: e.target.value };
+                          setEditingRecord({ ...editingRecord, exemplars: updated });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-orange-500 font-mono"
+                        placeholder="Ex: 000123"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Código de Barras</label>
+                      <input
+                        type="text"
+                        value={ex.barcode || ''}
+                        onChange={(e) => {
+                          const updated = [...editingRecord.exemplars];
+                          updated[idx] = { ...updated[idx], barcode: e.target.value };
+                          setEditingRecord({ ...editingRecord, exemplars: updated });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-orange-500 font-mono"
+                        placeholder="Ex: 000123"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Nº Chamada</label>
+                      <input
+                        type="text"
+                        value={ex.callNumber || form.callNumber || ''}
+                        onChange={(e) => {
+                          const updated = [...editingRecord.exemplars];
+                          updated[idx] = { ...updated[idx], callNumber: e.target.value };
+                          setEditingRecord({ ...editingRecord, exemplars: updated });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-orange-500 font-mono"
+                        placeholder="Ex: 354.8151"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Código Cutter ou PHA</label>
+                      <input
+                        type="text"
+                        value={ex.cutterCode || form.cutterCode || ''}
+                        onChange={(e) => {
+                          const updated = [...editingRecord.exemplars];
+                          updated[idx] = { ...updated[idx], cutterCode: e.target.value };
+                          setEditingRecord({ ...editingRecord, exemplars: updated });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-orange-500 font-mono"
+                        placeholder="Ex: S580"
+                      />
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-1">
+                      <label className="block text-xs text-gray-500 mb-1">Status</label>
+                      <select
+                        value={ex.status || 'AVAILABLE'}
+                        onChange={(e) => {
+                          const updated = [...editingRecord.exemplars];
+                          updated[idx] = { ...updated[idx], status: e.target.value };
+                          setEditingRecord({ ...editingRecord, exemplars: updated });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="AVAILABLE">✅ Disponível</option>
+                        <option value="LOANED">📚 Emprestado</option>
+                        <option value="PROCESSING">🔄 Em processamento</option>
+                        <option value="MAINTENANCE">🔧 Em manutenção</option>
+                        <option value="RESTORATION">🛠️ Em restauro</option>
+                        <option value="LOST">❌ Perdido</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <label className="block text-xs text-gray-500 mb-1">Nota Interna</label>
+                      <input
+                        type="text"
+                        value={ex.internalNote || ''}
+                        onChange={(e) => {
+                          const updated = [...editingRecord.exemplars];
+                          updated[idx] = { ...updated[idx], internalNote: e.target.value };
+                          setEditingRecord({ ...editingRecord, exemplars: updated });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-orange-500"
+                        placeholder="Observações internas sobre este exemplar..."
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+                    <Link
+                      href={`/dashboard/labels?exemplar=${ex.id}`}
+                      className="text-xs bg-orange-100 text-orange-700 px-3 py-1.5 rounded hover:bg-orange-200"
+                      target="_blank"
+                    >
+                      🏷️ Etiqueta deste exemplar
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = editingRecord.exemplars.filter((_: any, i: number) => i !== idx);
+                        setEditingRecord({ ...editingRecord, exemplars: updated });
+                      }}
+                      className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded hover:bg-red-200"
+                    >
+                      🗑️ Remover exemplar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const newEx = {
+                    id: 'new-' + Date.now(),
+                    accessionNumber: '',
+                    barcode: '',
+                    exemplarNumber: editingRecord.exemplars.length + 1,
+                    callNumber: form.callNumber,
+                    cutterCode: form.cutterCode,
+                    status: 'AVAILABLE',
+                    internalNote: '',
+                  };
+                  setEditingRecord({ ...editingRecord, exemplars: [...editingRecord.exemplars, newEx] });
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
+              >
+                ➕ Adicionar Novo Exemplar
+              </button>
+              <Link
+                href={`/dashboard/exemplars/novo?catalog=${editingRecord.controlNumber}`}
+                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 text-sm text-gray-700"
+              >
+                📋 Gestão Completa de Exemplares
+              </Link>
+            </div>
+          </section>
+        )}
+
         <div className="flex gap-3">
           <button
             type="button"
@@ -745,7 +1180,7 @@ export default function CatalogPage() {
             disabled={loading}
             className="flex-1 bg-primary-600 text-white py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50"
           >
-            {loading ? "Catalogando..." : "💾 Catalogar e gerar exemplares"}
+            {loading ? "Salvando..." : editMode ? "💾 Salvar alterações" : "💾 Catalogar e gerar exemplares"}
           </button>
         </div>
       </form>

@@ -74,6 +74,7 @@ export interface CatalogFormData {
   period?: string;
   physicalDesc?: string;
   generalNote?: string;
+  contentNote?: string;
   bibReference?: string;
   customFields: CustomField[];
 }

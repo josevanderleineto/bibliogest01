@@ -41,6 +41,7 @@ interface Item {
   cutterCode?: string;
   physicalDesc?: string;
   generalNote?: string;
+  contentNote?: string;
   seriesTitle?: string;
   seriesVolume?: string;
   customFields: unknown;
@@ -198,6 +199,7 @@ export default function CatalogDetailPage() {
                 </span>
               </Row>
             )}
+            {item.contentNote && <Row term="Nota de conteúdo / Sumário (505)">{item.contentNote}</Row>}
             {item.generalNote && <Row term="Nota geral">{item.generalNote}</Row>}
           </dl>
         </section>

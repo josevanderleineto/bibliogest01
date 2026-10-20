@@ -190,6 +190,30 @@ export default function ExemplarsPage() {
   const [editing, setEditing] = useState<ExemplarEdit | null>(null);
   const [success, setSuccess] = useState("");
 
+  const deleteExemplar = async (exemplarId: string) => {
+    if (!confirm("Tem certeza que deseja excluir este exemplar? Esta ação não pode ser desfeita.")) return;
+    setBusyId(exemplarId);
+    setError("");
+    try {
+      const res = await fetch("/api/exemplars", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: exemplarId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || "Erro ao excluir exemplar");
+        return;
+      }
+      setExemplars((prev) => prev.filter((e) => e.id !== exemplarId));
+      setSuccess("Exemplar excluído com sucesso.");
+    } catch {
+      setError("Erro de conexão ao excluir exemplar.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
   const load = useCallback(async (statusFilter = "", search = "") => {
     setLoading(true);
     setError("");
@@ -609,6 +633,14 @@ export default function ExemplarsPage() {
               {busyId === editing.id ? "Salvando..." : "💾 Salvar alterações"}
             </button>
             <button type="button" onClick={() => setEditing(null)} className="px-5 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancelar</button>
+            <button
+              type="button"
+              onClick={() => deleteExemplar(editing.id)}
+              disabled={busyId === editing.id}
+              className="px-5 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+            >
+              🗑️ Excluir exemplar
+            </button>
           </div>
         </form>
       )}
@@ -685,6 +717,14 @@ export default function ExemplarsPage() {
                         {EDITABLE.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                       </select>
                       <button type="button" onClick={() => openEdit(ex)} className="text-xs px-3 py-1.5 rounded bg-primary-100 text-primary-700 hover:bg-primary-200 whitespace-nowrap">✏️ Editar</button>
+                      <button
+                        type="button"
+                        onClick={() => deleteExemplar(ex.id)}
+                        disabled={busyId === ex.id}
+                        className="text-xs px-3 py-1.5 rounded bg-red-100 text-red-700 hover:bg-red-200 whitespace-nowrap disabled:opacity-50"
+                      >
+                        🗑️ Excluir
+                      </button>
                     </div>
                   </td>
                 </tr>
